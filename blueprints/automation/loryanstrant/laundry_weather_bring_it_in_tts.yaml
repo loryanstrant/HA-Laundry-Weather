@@ -1,0 +1,247 @@
+blueprint:
+  name: Laundry Weather — Bring It In (Spoken Announcement)
+  description: >-
+    Speaks an announcement when there is washing on the line and it should come
+    in — because rain has started, because nothing is drying any more, because
+    the bring-in time is approaching, or because dew will re-wet it overnight.
+
+    Every alert is gated on the washing actually being out, so an empty line
+    never notifies you. Tick only the alerts you want; each one is independent.
+
+    The announcement says *why*, in a full sentence meant to be heard rather
+    than read.
+
+    Quiet hours are respected by default so it does not announce in the middle
+    of the night — which matters here, because "nothing is drying any more"
+    naturally fires around sunset and dew alerts fire in the evening.
+
+    Needs the Laundry Weather integration:
+    https://github.com/loryanstrant/HA-Laundry-Weather
+  domain: automation
+  source_url: https://github.com/loryanstrant/HA-Laundry-Weather/blob/main/blueprints/automation/loryanstrant/laundry_weather_bring_it_in_tts.yaml
+  input:
+    washing_switch:
+      name: Washing-is-on-the-line switch
+      description: >-
+        The gate for every alert. Laundry Weather creates
+        switch.<name>_washing_on_the_line, or use your own helper if you told
+        the integration to reuse one.
+      selector:
+        entity:
+          domain:
+            - switch
+            - input_boolean
+
+    recommendation_sensor:
+      name: Recommendation sensor
+      description: >-
+        sensor.<name>_recommendation. Carries the drying_now signal and the
+        advice sentence used in the message.
+      selector:
+        entity:
+          domain: sensor
+
+    media_player:
+      name: Speaker
+      description: Where the announcement is played.
+      selector:
+        entity:
+          domain: media_player
+
+    tts_service:
+      name: TTS service
+      description: >-
+        The text-to-speech service to speak with, e.g. tts.google_translate_say
+        or tts.piper.
+      selector:
+        text:
+
+    quiet_start:
+      name: Stay quiet from
+      description: >-
+        No announcements after this time. "Nothing is drying" fires around
+        sunset and dew alerts fire in the evening, so without this you would be
+        announced at unhelpful hours.
+      default: "21:00:00"
+      selector:
+        time:
+
+    quiet_end:
+      name: Stay quiet until
+      default: "07:00:00"
+      selector:
+        time:
+
+    # --- which alerts ------------------------------------------------------
+
+    alert_rain:
+      name: Alert when rain starts
+      description: The one that saves a load.
+      default: true
+      selector:
+        boolean:
+
+    rain_sensor:
+      name: Currently-raining sensor
+      description: binary_sensor.<name>_currently_raining
+      default: ""
+      selector:
+        entity:
+          domain: binary_sensor
+
+    alert_stopped_drying:
+      name: Alert when nothing is drying any more
+      description: >-
+        Fires when the sun goes down or the drying score drops below the
+        cutoff — the natural "go and get it" moment.
+      default: true
+      selector:
+        boolean:
+
+    alert_deadline:
+      name: Alert before the bring-in time
+      default: true
+      selector:
+        boolean:
+
+    bring_in_sensor:
+      name: Bring-in-by sensor
+      description: sensor.<name>_bring_in_by
+      default: ""
+      selector:
+        entity:
+          domain: sensor
+
+    warning_minutes:
+      name: How much warning before the bring-in time
+      default: 30
+      selector:
+        number:
+          min: 5
+          max: 120
+          step: 5
+          unit_of_measurement: minutes
+          mode: slider
+
+    alert_dew:
+      name: Alert when dew will re-wet it overnight
+      default: true
+      selector:
+        boolean:
+
+    dew_sensor:
+      name: Overnight-dew sensor
+      description: binary_sensor.<name>_overnight_dew
+      default: ""
+      selector:
+        entity:
+          domain: binary_sensor
+
+    announcement_prefix:
+      name: How the announcement opens
+      default: "Laundry."
+      selector:
+        text:
+
+mode: single
+max_exceeded: silent
+
+# Automation-level `variables` are not visible to a template trigger, so the
+# two values the trigger needs are declared here instead. This is what
+# trigger_variables is for.
+trigger_variables:
+  bring_in_entity: !input bring_in_sensor
+  warning: !input warning_minutes
+
+triggers:
+  - trigger: state
+    entity_id: !input rain_sensor
+    to: "on"
+    id: rain
+
+  # drying_now is an attribute on the recommendation sensor, so this is an
+  # attribute trigger rather than a template. It fires on the transition, which
+  # is the moment worth telling someone about.
+  - trigger: state
+    entity_id: !input recommendation_sensor
+    attribute: drying_now
+    to: false
+    id: stopped
+
+  - trigger: state
+    entity_id: !input dew_sensor
+    to: "on"
+    id: dew
+
+  - trigger: template
+    id: deadline
+    value_template: >-
+      {% set target = states(bring_in_entity) %}
+      {% if target not in ['unknown', 'unavailable', 'none', ''] %}
+        {% set left = (as_timestamp(target, 0) - as_timestamp(now())) / 60 %}
+        {{ 0 < left <= (warning | int(30)) }}
+      {% else %}
+        false
+      {% endif %}
+
+variables:
+  bring_in_entity: !input bring_in_sensor
+  warning: !input warning_minutes
+  advice_source: !input recommendation_sensor
+  speaker: !input media_player
+  speak_with: !input tts_service
+  prefix: !input announcement_prefix
+  want_rain: !input alert_rain
+  want_stopped: !input alert_stopped_drying
+  want_deadline: !input alert_deadline
+  want_dew: !input alert_dew
+
+conditions:
+  # Nothing here is worth saying about an empty line.
+  - condition: state
+    entity_id: !input washing_switch
+    state: "on"
+  - condition: template
+    # `.get` rather than `[...]`: pressing "Run" in the UI leaves trigger.id
+    # undefined, and a KeyError there makes a manual test look like a broken
+    # blueprint. Unknown trigger means "let it through" so a manual run shows
+    # you what the notification looks like.
+    value_template: >-
+      {{ {'rain': want_rain, 'stopped': want_stopped,
+          'deadline': want_deadline,
+          'dew': want_dew}.get(trigger.id | default('manual'), true) }}
+  # Nobody wants to be told about the washing at 3am.
+  - condition: not
+    conditions:
+      - condition: time
+        after: !input quiet_start
+        before: !input quiet_end
+
+actions:
+  - variables:
+      # Deliberately not the whole advice sentence: it restates the reason and
+      # made a two-line notification into a paragraph. Just where to put it.
+      best_spot: "{{ states(advice_source) }}"
+      best_band: "{{ state_attr(advice_source, 'recommended_band') or '' }}"
+      tail: >-
+        {%- if best_spot not in ['unknown', 'unavailable', 'none', ''] -%}
+          Best spot now: {{ best_spot }}{{ ' (' ~ best_band ~ ')' if best_band }}.
+        {%- endif -%}
+      reason: >-
+        {%- if trigger.id == 'rain' -%}
+          It has started raining, and the washing is still on the line.
+        {%- elif trigger.id == 'stopped' -%}
+          Nothing is drying outside any more, and the washing is still out.
+        {%- elif trigger.id == 'deadline' -%}
+          {%- set left = ((as_timestamp(states(bring_in_entity), 0)
+                           - as_timestamp(now())) / 60) | round(0) | int -%}
+          Time to bring the washing in. About {{ left }} minutes left.
+        {%- else -%}
+          Dew is expected tonight, so anything left out will get damp again.
+        {%- endif -%}
+
+  - action: "{{ speak_with }}"
+    data:
+      entity_id: "{{ speaker }}"
+      # Spoken, so no markdown and no entity ids — just the sentence.
+      message: "{{ prefix }} {{ reason }}{{ (' ' ~ tail) if tail else '' }}"
