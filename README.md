@@ -1,11 +1,16 @@
+<img src="custom_components/laundry_weather/brand/icon.png" width="96" align="left"
+     alt="Laundry Weather icon: a rotary washing line with a shirt and socks, a thermometer and a sun">
+
 # Laundry Weather
+
+**Where should I hang the washing?**
+
+<br clear="left">
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz)
 [![Validate](https://github.com/loryanstrant/HA-Laundry-Weather/actions/workflows/validate.yaml/badge.svg)](https://github.com/loryanstrant/HA-Laundry-Weather/actions/workflows/validate.yaml)
 [![Release](https://img.shields.io/github/v/release/loryanstrant/HA-Laundry-Weather?display_name=tag)](https://github.com/loryanstrant/HA-Laundry-Weather/releases)
 [![License](https://img.shields.io/github/license/loryanstrant/HA-Laundry-Weather)](LICENSE)
-
-**Where should I hang the washing?**
 
 Laundry Weather scores every place you could hang a load — each indoor room, the line under
 cover, and the same line pulled out into the sun — and tells you which one wins right now,

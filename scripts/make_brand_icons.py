@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
-"""Render the brand icon PNGs that HACS looks for.
+"""Render the brand icons Home Assistant and HACS look for.
 
-HACS checks for `custom_components/<domain>/brand/icon.png` (256px) and
-`icon@2x.png` (512px), falling back to the Home Assistant brands repository if
-they are absent — and failing validation if neither exists.
+Home Assistant reads an integration's own `brand/` folder — `loader.py`:
 
-The shapes live in `brand/icon.svg` so they stay editable; this renders them.
-Run it in a container with a browser, which the Rufus container has not got:
+    def has_branding(self) -> bool:
+        return "brand" in self._top_level_files
 
-    ssh blaster "sudo -n docker run --rm --network none -v <repo>:/repo -w /repo \\
-        -e PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \\
-        mcr.microsoft.com/playwright/python:v1.49.0-noble \\
-        bash -lc 'pip install -q playwright==1.49.0 && python scripts/make_brand_icons.py'"
+so this is what puts the icon beside "Laundry Weather" in the integrations
+list. HACS checks the same folder during validation. Neither needs a pull
+request to the home-assistant/brands repository.
 
-The outputs are committed, so nobody needs to re-run this to build the repo.
+`brand/logo-source.png` is the artwork as supplied; the two PNGs beside it are
+generated from it and committed, so nobody has to run this to build the repo.
+Re-run it after replacing the source:
+
+    python scripts/make_brand_icons.py
 """
 
 from __future__ import annotations
@@ -21,33 +22,42 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
+from PIL import Image
 
-BRAND = Path(__file__).resolve().parent.parent / "custom_components" / "laundry_weather" / "brand"
-SOURCE = BRAND / "icon.svg"
+BRAND = (
+    Path(__file__).resolve().parent.parent
+    / "custom_components"
+    / "laundry_weather"
+    / "brand"
+)
+SOURCE = BRAND / "logo-source.png"
 SIZES = {"icon.png": 256, "icon@2x.png": 512}
 
 
 def main() -> int:
     if not SOURCE.exists():
-        raise SystemExit(f"missing {SOURCE}")
+        raise SystemExit(f"missing source artwork: {SOURCE}")
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(args=["--force-color-profile=srgb"])
-        for name, size in SIZES.items():
-            page = browser.new_page(viewport={"width": size, "height": size})
-            page.set_content(
-                "<style>html,body{margin:0;padding:0}svg{display:block}</style>"
-                + SOURCE.read_text(encoding="utf-8").replace(
-                    'width="256" height="256"',
-                    f'width="{size}" height="{size}"',
-                )
-            )
-            page.wait_for_timeout(200)
-            page.screenshot(path=str(BRAND / name), omit_background=True)
-            page.close()
-            print(f"{name:<12} {size}x{size}  {(BRAND / name).stat().st_size // 1024} KB")
-        browser.close()
+    art = Image.open(SOURCE).convert("RGBA")
+    if art.width != art.height:
+        # Home Assistant expects a square icon; centre-crop rather than squash.
+        side = min(art.size)
+        left = (art.width - side) // 2
+        top = (art.height - side) // 2
+        art = art.crop((left, top, left + side, top + side))
+
+    print(f"source {SOURCE.name}: {art.width}x{art.height}")
+    if art.width < max(SIZES.values()):
+        # Say so rather than quietly upscaling and calling it done.
+        print(
+            f"note: source is smaller than {max(SIZES.values())}px, so "
+            f"icon@2x.png is an upscale"
+        )
+
+    for name, size in SIZES.items():
+        out = BRAND / name
+        art.resize((size, size), Image.LANCZOS).save(out, "PNG", optimize=True)
+        print(f"{name:<12} {size}x{size}  {out.stat().st_size // 1024} KB")
     return 0
 
 
