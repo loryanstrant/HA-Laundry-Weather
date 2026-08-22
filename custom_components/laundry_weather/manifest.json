@@ -1,6 +1,9 @@
 {
   "domain": "laundry_weather",
   "name": "Laundry Weather",
+  "after_dependencies": [
+    "weather"
+  ],
   "codeowners": [
     "@loryanstrant"
   ],
@@ -9,9 +12,6 @@
     "http",
     "lovelace",
     "sun"
-  ],
-  "after_dependencies": [
-    "weather"
   ],
   "documentation": "https://github.com/loryanstrant/HA-Laundry-Weather",
   "integration_type": "service",

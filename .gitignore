@@ -76,4 +76,11 @@ Thumbs.db
 /tmp/
 
 # Validation script (not needed in releases)
-validate_structure.py.venv/
+validate_structure.py
+
+# Local test virtualenv
+.venv/
+
+# Rufus session scratch: verification shots live here, never in the repo.
+# README images belong in docs/images/ so they resolve on GitHub.
+_IMAGES/
