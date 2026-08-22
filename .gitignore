@@ -77,3 +77,7 @@ Thumbs.db
 
 # Validation script (not needed in releases)
 validate_structure.py.venv/
+
+# Rufus session scratch: verification shots live here, never in the repo.
+# README images belong in docs/images/ so they resolve on GitHub.
+_IMAGES/

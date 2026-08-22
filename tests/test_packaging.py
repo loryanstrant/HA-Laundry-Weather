@@ -161,3 +161,29 @@ def test_brand_icons_exist_at_the_size_hacs_expects(name: str, expected: int) ->
     width = int.from_bytes(header[16:20], "big")
     height = int.from_bytes(header[20:24], "big")
     assert (width, height) == (expected, expected), f"{name} is {width}x{height}"
+
+
+def test_every_image_the_readme_points_at_exists() -> None:
+    """A broken image is invisible until somebody opens the repo page.
+
+    This shipped once: the README pointed at `_IMAGES/`, which is a session
+    scratch directory that was never committed, so the only picture in the
+    README rendered as a broken link on GitHub.
+    """
+    readme = (REPO / "README.md").read_text(encoding="utf-8")
+    referenced = set(re.findall(r"!\[[^\]]*\]\(([^)\s]+)\)", readme, re.S))
+    referenced |= set(re.findall(r'<img[^>]+src="([^"]+)"', readme))
+
+    local = [r for r in referenced if not r.startswith(("http://", "https://"))]
+    assert local, "the README should show at least one screenshot"
+
+    missing = [r for r in local if not (REPO / r).exists()]
+    assert not missing, f"README references images that are not in the repo: {missing}"
+
+    # Also keep them light — a README that takes a minute to load is its own bug.
+    heavy = [
+        f"{r} ({(REPO / r).stat().st_size // 1024} KB)"
+        for r in local
+        if (REPO / r).stat().st_size > 400 * 1024
+    ]
+    assert not heavy, f"README images are too heavy: {heavy}"

@@ -14,7 +14,15 @@ when to move it outside, and when to bring it in.
 It comes with a Lovelace card that shows the answer, and charts how the next 24 hours are
 going to go.
 
-![The Laundry Weather card](_IMAGES/card-desktop.png)
+![The Laundry Weather card on a dashboard, showing the mascot banner, the ranked list of
+places to hang washing, the timings and the drying forecast chart](docs/images/card-desktop.png)
+
+<p align="center">
+  <img src="docs/images/card-mobile.png" width="380"
+       alt="The same card on a phone: everything fits at 380 pixels with no horizontal scroll">
+</p>
+
+<p align="center"><em>The same card on a phone — the layout is checked at 380px.</em></p>
 
 ---
 
