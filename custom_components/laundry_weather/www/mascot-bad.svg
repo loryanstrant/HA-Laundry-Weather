@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Laundry Weather mascot — disapproving.
+
+  Same character as mascot-good.svg, scowling: brows down and inward, mouth
+  open mid-bellow, ridges tightened. Distinguished from the approving version
+  by shape rather than colour, so the two read differently at a glance and in
+  greyscale.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 150" role="img"
+     aria-label="A Klingon officer scowling in disgust">
+  <defs>
+    <linearGradient id="lw-skin-bad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a9663f"/>
+      <stop offset="1" stop-color="#7d4527"/>
+    </linearGradient>
+  </defs>
+
+  <path d="M12 150 q0-30 22-38 l26-8 26 8 q22 8 22 38 z" fill="#1b1b1f"/>
+  <path d="M12 150 q0-9 2-16 l92 0 q2 7 2 16 z" fill="#8c1d24"/>
+  <path d="M40 108 l16-6 30 48 -18 0 z" fill="#9a9aa2"/>
+  <path d="M40 108 l16-6 30 48 -18 0 z" fill="none" stroke="#6d6d75" stroke-width="1.5"/>
+  <path d="M30 128 l9-5 9 5 -9 6 z" fill="#c9a227"/>
+
+  <path d="M46 92 h28 v18 q-14 8 -28 0 z" fill="#6f3d23"/>
+
+  <path d="M22 60 q-2-40 38-42 q40 2 38 42 q2 22 -6 30 q2-34 -32-36 q-34 2 -32 36 q-8-8 -6-30z"
+        fill="#161616"/>
+
+  <path d="M26 58 q0-34 34-34 q34 0 34 34 q0 30 -12 42 q-9 9 -22 9 q-13 0 -22-9 q-12-12 -12-42z"
+        fill="url(#lw-skin-bad)"/>
+
+  <!-- ridges, drawn tighter and more furrowed than the approving version -->
+  <g fill="none" stroke="#5f3018" stroke-width="2.6" stroke-linecap="round">
+    <path d="M37 41 q23-13 46 0"/>
+    <path d="M39 48 q21-11 42 0"/>
+    <path d="M60 29 v23"/>
+    <path d="M49 32 q4 11 3 20"/>
+    <path d="M71 32 q-4 11 -3 20"/>
+    <path d="M44 36 q3 9 2 16"/>
+    <path d="M76 36 q-3 9 -2 16"/>
+  </g>
+  <path d="M33 45 q27-15 54 0 q-3 9 -9 10 q-18-10 -36 0 q-6-1 -9-10z"
+        fill="#8a5230" opacity="0.85"/>
+
+  <!-- brows driven down and inward: the anger reads from shape alone -->
+  <path d="M39 57 l18 8" stroke="#3d1f0f" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M81 57 l-18 8" stroke="#3d1f0f" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+  <path d="M43 70 q7-4 13 1 q-6 4 -13 -1z" fill="#ffffff"/>
+  <path d="M64 71 q6-5 13 -1 q-7 5 -13 1z" fill="#ffffff"/>
+  <circle cx="50" cy="71" r="2.7" fill="#20120a"/>
+  <circle cx="70" cy="71" r="2.7" fill="#20120a"/>
+
+  <path d="M60 72 q-5 10 -1 13 q3 2 7 0" fill="none" stroke="#5f3018" stroke-width="2"
+        stroke-linecap="round"/>
+
+  <path d="M43 87 q17-8 34 0 q-4 20 -17 22 q-13-2 -17-22z" fill="#161616"/>
+  <path d="M45 85 q15-9 30 0 q-15 6 -30 0z" fill="#161616"/>
+
+  <!-- mouth open mid-bellow, with teeth -->
+  <path d="M50 91 q10-3 20 0 q-2 13 -10 14 q-8-1 -10-14z" fill="#3a1109"/>
+  <path d="M52 92 q8-2 16 0 l-2 3 q-6-2 -12 0z" fill="#f2ede4"/>
+</svg>
