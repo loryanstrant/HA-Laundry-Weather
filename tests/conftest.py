@@ -25,6 +25,23 @@ def auto_enable_custom_integrations(enable_custom_integrations):
     return
 
 
+@pytest.fixture(autouse=True)
+def disposable_config_dir(request, tmp_path):
+    """Give each test its own config directory.
+
+    `pytest-homeassistant-custom-component` points every test at one shared
+    `testing_config/` inside site-packages. Setting the integration up installs
+    its blueprints into it for real, so files survive the run and change what
+    the next one sees. That already showed up here: a test that edits an
+    installed blueprint made the test asserting the installed copy is pristine
+    fail on the *second* run only.
+    """
+    if "hass" not in request.fixturenames:
+        return
+    hass = request.getfixturevalue("hass")
+    hass.config.config_dir = str(tmp_path)
+
+
 @pytest.fixture
 def local_tz() -> ZoneInfo:
     """Return the pinned local timezone."""

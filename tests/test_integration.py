@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 from datetime import timedelta
+from pathlib import Path
 
 import pytest
 from homeassistant.core import HomeAssistant, SupportsResponse
@@ -544,3 +545,86 @@ async def test_a_broken_resource_manager_is_survivable(
     await _async_ensure_lovelace_resource(hass)
 
     assert "Add it by hand" in caplog.text
+
+
+# --- the blueprints -----------------------------------------------------------
+
+
+@pytest.fixture
+def blueprint_config_dir(hass: HomeAssistant):
+    """Where the blueprints should land, inside this test's own config dir.
+
+    The config directory is made disposable per test in `conftest.py`, so an
+    install here cannot leak into the next run.
+    """
+    return Path(hass.config.path("blueprints", "automation", "loryanstrant"))
+
+
+SHIPPED_BLUEPRINTS = (
+    Path(__file__).resolve().parent.parent
+    / "custom_components"
+    / "laundry_weather"
+    / "blueprints"
+    / "automation"
+    / "loryanstrant"
+)
+
+
+async def test_the_blueprints_install_themselves(
+    hass: HomeAssistant, blueprint_config_dir, loaded_entry: MockConfigEntry
+) -> None:
+    """Setting the integration up must be the only step.
+
+    Home Assistant loads blueprints from `config/blueprints/<domain>/` and
+    nowhere else, so a blueprint shipped inside a custom component is invisible
+    until something copies it there. Nothing warns about this — the user simply
+    never sees them.
+    """
+    shipped = sorted(SHIPPED_BLUEPRINTS.glob("*.yaml"))
+    assert shipped, "nothing is bundled to install"
+
+    for source in shipped:
+        landed = blueprint_config_dir / source.name
+        assert landed.exists(), f"{source.name} was never installed"
+        assert landed.read_bytes() == source.read_bytes()
+
+
+async def test_an_edited_copy_is_not_clobbered(
+    hass: HomeAssistant, blueprint_config_dir, loaded_entry: MockConfigEntry
+) -> None:
+    """Somebody's own tweak survives a restart.
+
+    Copying unconditionally would silently throw away edits every time Home
+    Assistant restarted, which is the kind of loss nobody thinks to look for.
+    """
+    from custom_components.laundry_weather.blueprints_install import (
+        _DATA_INSTALLED,
+        async_install_blueprints,
+    )
+
+    mine = next(blueprint_config_dir.glob("*.yaml"))
+    mine.write_text("# my own version\n", encoding="utf-8")
+
+    # Pretend this is a fresh start, so the copy is genuinely re-attempted.
+    hass.data.pop(_DATA_INSTALLED, None)
+    await async_install_blueprints(hass)
+
+    assert mine.read_text(encoding="utf-8") == "# my own version\n"
+
+
+async def test_an_unwritable_blueprint_folder_does_not_break_setup(
+    hass: HomeAssistant, blueprint_config_dir, caplog
+) -> None:
+    """A read-only config directory must cost the notifications, not the integration."""
+    from custom_components.laundry_weather.blueprints_install import (
+        async_install_blueprints,
+    )
+
+    def _explode(*args, **kwargs):
+        raise OSError("read-only file system")
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr("shutil.copy2", _explode)
+        await async_install_blueprints(hass)
+
+    assert "could not install blueprint" in caplog.text
