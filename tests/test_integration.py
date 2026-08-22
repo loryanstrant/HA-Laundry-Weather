@@ -428,3 +428,119 @@ async def test_unload(hass: HomeAssistant, loaded_entry: MockConfigEntry) -> Non
     assert await hass.config_entries.async_unload(loaded_entry.entry_id)
     await hass.async_block_till_done()
     assert loaded_entry.entry_id not in hass.data.get(DOMAIN, {})
+
+
+# --- the card's Lovelace registration ---------------------------------------
+
+
+class _FakeResources:
+    """Enough of Home Assistant's resource collection to assert against."""
+
+    def __init__(self, items=None, loaded=True):
+        self.items = list(items or [])
+        self.loaded = loaded
+        self.created = []
+        self.updated = []
+
+    async def async_load(self):
+        self.loaded = True
+
+    def async_items(self):
+        return list(self.items)
+
+    async def async_create_item(self, data):
+        self.created.append(data)
+        return data
+
+    async def async_update_item(self, item_id, data):
+        self.updated.append((item_id, data))
+
+
+class _FakeLovelace:
+    def __init__(self, resources, mode):
+        self.resources = resources
+        self.mode = mode
+
+
+@pytest.mark.parametrize("mode", ["storage", "yaml", None])
+async def test_the_card_is_registered_whatever_the_dashboard_mode(
+    hass: HomeAssistant, mode
+) -> None:
+    """A non-storage dashboard mode must not stop the card registering.
+
+    This shipped broken: the code returned early unless the mode was exactly
+    "storage", so on a real instance the card was served at its URL and
+    registered nowhere, and every dashboard using it showed "Custom element
+    doesn't exist". The resource collection is storage-backed regardless of how
+    the dashboards themselves are defined.
+    """
+    from custom_components.laundry_weather import (
+        CARD_RESOURCE_URL,
+        _async_ensure_lovelace_resource,
+    )
+
+    resources = _FakeResources()
+    hass.data["lovelace"] = _FakeLovelace(resources, mode)
+
+    await _async_ensure_lovelace_resource(hass)
+
+    assert resources.created == [
+        {"res_type": "module", "url": CARD_RESOURCE_URL}
+    ], f"card not registered with dashboard mode {mode!r}"
+
+
+async def test_registering_twice_does_not_duplicate_the_resource(
+    hass: HomeAssistant,
+) -> None:
+    from custom_components.laundry_weather import (
+        CARD_RESOURCE_URL,
+        _async_ensure_lovelace_resource,
+    )
+
+    resources = _FakeResources(
+        items=[{"id": "abc", "url": CARD_RESOURCE_URL, "type": "module"}]
+    )
+    hass.data["lovelace"] = _FakeLovelace(resources, "storage")
+
+    await _async_ensure_lovelace_resource(hass)
+
+    assert resources.created == []
+    assert resources.updated == []
+
+
+async def test_an_older_version_of_the_resource_is_updated_in_place(
+    hass: HomeAssistant,
+) -> None:
+    """The ?v= cache buster changes every release; the entry must follow."""
+    from custom_components.laundry_weather import (
+        CARD_URL,
+        CARD_RESOURCE_URL,
+        _async_ensure_lovelace_resource,
+    )
+
+    resources = _FakeResources(
+        items=[{"id": "abc", "url": f"{CARD_URL}?v=0.0.1", "type": "module"}]
+    )
+    hass.data["lovelace"] = _FakeLovelace(resources, "storage")
+
+    await _async_ensure_lovelace_resource(hass)
+
+    assert resources.created == []
+    assert resources.updated == [("abc", {"url": CARD_RESOURCE_URL})]
+
+
+async def test_a_broken_resource_manager_is_survivable(
+    hass: HomeAssistant, caplog
+) -> None:
+    """A dashboard problem must never stop the integration loading."""
+    from custom_components.laundry_weather import _async_ensure_lovelace_resource
+
+    class _Exploding(_FakeResources):
+        async def async_create_item(self, data):
+            raise RuntimeError("resource store is read-only")
+
+    hass.data["lovelace"] = _FakeLovelace(_Exploding(), "storage")
+
+    await _async_ensure_lovelace_resource(hass)
+
+    assert "Add it by hand" in caplog.text

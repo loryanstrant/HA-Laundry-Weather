@@ -12,6 +12,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.event import async_call_later
 
 from .const import (
     CARD_FILENAME,
@@ -34,6 +35,10 @@ PLATFORMS: list[Platform] = [
 CARD_URL = f"{STATIC_URL_BASE}/{CARD_FILENAME}"
 CARD_RESOURCE_URL = f"{CARD_URL}?v={INTEGRATION_VERSION}"
 
+#: Lovelace is often still loading when this entry is set up.
+RESOURCE_RETRY_SECONDS = 5
+RESOURCE_RETRY_LIMIT = 12
+
 SET_WASHING_OUT_SCHEMA = vol.Schema(
     {
         vol.Optional("entry_id"): cv.string,
@@ -45,7 +50,7 @@ SET_WASHING_OUT_SCHEMA = vol.Schema(
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Laundry Weather from a config entry."""
     await _async_register_static_path(hass)
-    await _async_ensure_lovelace_resource(hass)
+    hass.async_create_task(_async_ensure_lovelace_resource(hass))
 
     coordinator = LaundryWeatherCoordinator(hass, entry)
     try:
@@ -94,39 +99,77 @@ async def _async_register_static_path(hass: HomeAssistant) -> None:
         _LOGGER.debug("%s: static path %s already registered", DOMAIN, STATIC_URL_BASE)
 
 
-async def _async_ensure_lovelace_resource(hass: HomeAssistant) -> None:
-    """Register the card as a Lovelace resource so nobody has to do it by hand."""
+async def _async_ensure_lovelace_resource(hass: HomeAssistant, attempt: int = 0) -> None:
+    """Register the card as a Lovelace resource so nobody has to do it by hand.
+
+    Retried rather than attempted once: Lovelace is frequently not loaded yet
+    when this entry is set up, and giving up quietly at that point means the
+    card is served but never registered, so every dashboard using it shows
+    "Custom element doesn't exist". That is exactly what happened on the first
+    run against DEV — the file was fetchable at its URL, and the resource list
+    had no mention of it.
+    """
     lovelace = hass.data.get("lovelace")
     resources = getattr(lovelace, "resources", None) if lovelace else None
     if resources is None:
-        _LOGGER.debug("%s: Lovelace resources unavailable; skipping", DOMAIN)
+        if attempt < RESOURCE_RETRY_LIMIT:
+            _LOGGER.debug(
+                "%s: Lovelace not ready, retrying resource registration", DOMAIN
+            )
+            async_call_later(
+                hass,
+                RESOURCE_RETRY_SECONDS,
+                lambda _now: hass.async_create_task(
+                    _async_ensure_lovelace_resource(hass, attempt + 1)
+                ),
+            )
+        else:
+            _LOGGER.warning(
+                "%s: could not register the card with Lovelace. Add it by hand "
+                "under Settings > Dashboards > Resources:\n  url: %s\n  type: module",
+                DOMAIN,
+                CARD_RESOURCE_URL,
+            )
         return
 
-    if getattr(lovelace, "mode", None) != "storage":
-        # YAML-mode dashboards cannot be edited programmatically, so say
-        # exactly what to paste rather than failing quietly.
-        _LOGGER.info(
-            "%s: Lovelace is in YAML mode. Add this under `resources:` yourself:\n"
-            "  - url: %s\n    type: module",
+    # A dashboard mode other than "storage" is NOT a reason to give up. The
+    # resource collection is storage-backed regardless of how the dashboards
+    # themselves are defined, and bailing here is what left the card registered
+    # nowhere on DEV: the file served fine, and the resource list had 32
+    # entries belonging to other integrations and nothing of ours. Log what the
+    # mode is, then carry on and let the attempt itself decide.
+    mode = getattr(lovelace, "mode", None)
+    if mode != "storage":
+        _LOGGER.debug(
+            "%s: Lovelace mode is %s; trying the resource manager anyway",
             DOMAIN,
+            mode,
+        )
+
+    try:
+        if hasattr(resources, "loaded") and not resources.loaded:
+            await resources.async_load()
+
+        for item in resources.async_items():
+            if item.get("url", "").startswith(CARD_URL):
+                if item["url"] != CARD_RESOURCE_URL:
+                    await resources.async_update_item(
+                        item["id"], {"url": CARD_RESOURCE_URL}
+                    )
+                return
+
+        await resources.async_create_item(
+            {"res_type": "module", "url": CARD_RESOURCE_URL}
+        )
+        _LOGGER.debug("%s: registered %s with Lovelace", DOMAIN, CARD_RESOURCE_URL)
+    except Exception as err:  # noqa: BLE001 - a dashboard problem is not fatal
+        _LOGGER.warning(
+            "%s: could not register the card with Lovelace (%s). Add it by hand "
+            "under Settings > Dashboards > Resources:\n  url: %s\n  type: module",
+            DOMAIN,
+            err,
             CARD_RESOURCE_URL,
         )
-        return
-
-    if not resources.loaded:
-        await resources.async_load()
-
-    for item in resources.async_items():
-        if item.get("url", "").startswith(CARD_URL):
-            if item["url"] != CARD_RESOURCE_URL:
-                await resources.async_update_item(
-                    item["id"], {"url": CARD_RESOURCE_URL}
-                )
-            return
-
-    await resources.async_create_item(
-        {"res_type": "module", "url": CARD_RESOURCE_URL}
-    )
 
 
 def _register_services(hass: HomeAssistant) -> None:

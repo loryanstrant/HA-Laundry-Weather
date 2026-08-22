@@ -481,9 +481,14 @@ class LaundryWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
 
         # Sun elevation per forecast hour is what lets the cloud-cover model
-        # work for providers that return no UV index.
+        # work for providers that return no UV index. The astral observer is
+        # resolved once per refresh rather than once per hour — doing it per
+        # hour meant 48 lookups every two minutes, and on newer Home Assistant
+        # it emitted 48 deprecation warnings a go, each inviting the user to
+        # open a bug report.
+        observer = _astral_observer(self.hass)
         hours = [
-            replace(hour, elevation_deg=_elevation_at(self.hass, hour.ts))
+            replace(hour, elevation_deg=_solar_elevation(observer, hour.ts))
             for hour in await self._async_forecast(now)
         ]
         series, sun_model = calc.score_forecast(hours, now, self.tuning)
@@ -609,14 +614,39 @@ class LaundryWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         }
 
 
-def _elevation_at(hass: HomeAssistant, when: datetime) -> float | None:
-    """Sun elevation at a future time, for the cloud-cover forecast model."""
-    try:
-        from homeassistant.helpers.sun import get_astral_location
+def _astral_observer(hass: HomeAssistant) -> Any | None:
+    """Resolve whatever this Home Assistant version calls the sun observer.
 
-        location, elevation = get_astral_location(hass)
-        return location.solar_elevation(when, elevation)
-    except Exception:  # noqa: BLE001 - astral is a nicety, not a requirement
+    `get_astral_location` is deprecated from 2026 and removed in 2027.7, but
+    `get_astral_observer` does not exist on older releases, so both are tried.
+    """
+    from homeassistant.helpers import sun as sun_helper
+
+    getter = getattr(sun_helper, "get_astral_observer", None)
+    if getter is not None:
+        try:
+            return getter(hass)
+        except Exception:  # noqa: BLE001 - astral is a nicety, not a requirement
+            return None
+    try:
+        return sun_helper.get_astral_location(hass)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _solar_elevation(observer: Any | None, when: datetime) -> float | None:
+    """Sun elevation at a future time, for the cloud-cover forecast model."""
+    if observer is None:
+        return None
+    try:
+        if isinstance(observer, tuple):
+            # Older API: (Location, elevation above sea level).
+            location, elevation = observer
+            return location.solar_elevation(when, elevation)
+        import astral.sun
+
+        return astral.sun.elevation(observer, when)
+    except Exception:  # noqa: BLE001
         return None
 
 

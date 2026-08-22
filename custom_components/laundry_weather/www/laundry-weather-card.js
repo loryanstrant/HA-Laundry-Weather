@@ -57,8 +57,41 @@ function _lwEscape(text) {
   return el.innerHTML;
 }
 
-/** "— in 35 min" / "— in 2.3 h" / "— tomorrow 07:15" / "(already past)". */
-function _lwCountdown(iso, locale) {
+/**
+ * Time formatting follows Home Assistant, not the browser.
+ *
+ * Both parts of that matter. Formatting in the browser's own zone showed
+ * 08:49 in the footer beside a chart starting at 19:00 — the same instant,
+ * rendered two different ways, because the browser was on UTC and the home was
+ * not. And the 12/24-hour choice is a Home Assistant setting, so taking the
+ * browser default put "02:00 AM" in the timings above a chart labelled 19:00.
+ */
+function _lwFormatters(hass) {
+  var locale = (hass && hass.locale && hass.locale.language) || navigator.language;
+  var zone = (hass && hass.config && hass.config.time_zone) || undefined;
+  var format = hass && hass.locale && hass.locale.time_format;
+  var hour12;
+  if (format === "12") { hour12 = true; }
+  else if (format === "24") { hour12 = false; }
+  // "language" and "system" both mean "let the locale decide".
+
+  var options = { hour: "2-digit", minute: "2-digit", timeZone: zone };
+  if (hour12 !== undefined) { options.hour12 = hour12; }
+  return {
+    time: new Intl.DateTimeFormat(locale, options),
+    day: new Intl.DateTimeFormat(locale, { weekday: "short", timeZone: zone }),
+  };
+}
+
+function _lwTime(iso, fmt) {
+  if (!iso) { return ""; }
+  var when = new Date(iso);
+  if (isNaN(when.getTime())) { return ""; }
+  return fmt.time.format(when);
+}
+
+/** "— in 35 min" / "— in 2.3 h" / "— Sun 07:15" / "(already past)". */
+function _lwCountdown(iso, fmt) {
   if (!iso) { return ""; }
   var then = new Date(iso);
   if (isNaN(then.getTime())) { return ""; }
@@ -66,15 +99,7 @@ function _lwCountdown(iso, locale) {
   if (minutes < 0) { return "(already past)"; }
   if (minutes < 60) { return "— in " + Math.round(minutes) + " min"; }
   if (minutes < 24 * 60) { return "— in " + (minutes / 60).toFixed(1) + " h"; }
-  return "— " + then.toLocaleDateString(locale, { weekday: "short" }) + " " +
-    _lwTime(iso, locale);
-}
-
-function _lwTime(iso, locale) {
-  if (!iso) { return ""; }
-  var when = new Date(iso);
-  if (isNaN(when.getTime())) { return ""; }
-  return when.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+  return "— " + fmt.day.format(then) + " " + _lwTime(iso, fmt);
 }
 
 class LaundryWeatherCard extends HTMLElement {
@@ -84,6 +109,7 @@ class LaundryWeatherCard extends HTMLElement {
     this._config = Object.assign({}, DEFAULTS);
     this._hass = null;
     this._lastDataJSON = "";
+    this._formatters = null;
     this._tick = null;
   }
 
@@ -114,6 +140,7 @@ class LaundryWeatherCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
+    this._formatters = null;
     var json = this._dataJSON();
     if (json !== this._lastDataJSON) {
       this._lastDataJSON = json;
@@ -152,9 +179,9 @@ class LaundryWeatherCard extends HTMLElement {
     return JSON.stringify([state.state, state.attributes]);
   }
 
-  _locale() {
-    return (this._hass && this._hass.locale && this._hass.locale.language) ||
-      navigator.language;
+  _fmt() {
+    if (!this._formatters) { this._formatters = _lwFormatters(this._hass); }
+    return this._formatters;
   }
 
   _klingon(attrs) {
@@ -166,10 +193,10 @@ class LaundryWeatherCard extends HTMLElement {
 
   _refreshCountdowns() {
     if (!this.shadowRoot) { return; }
-    var locale = this._locale();
+    var fmt = this._fmt();
     var nodes = this.shadowRoot.querySelectorAll(".cd[data-at]");
     for (var i = 0; i < nodes.length; i++) {
-      nodes[i].textContent = _lwCountdown(nodes[i].getAttribute("data-at"), locale);
+      nodes[i].textContent = _lwCountdown(nodes[i].getAttribute("data-at"), fmt);
     }
   }
 
@@ -234,7 +261,7 @@ class LaundryWeatherCard extends HTMLElement {
 
   _timing(attrs) {
     if (!this._config.show_timing || !attrs.timings) { return ""; }
-    var locale = this._locale();
+    var fmt = this._fmt();
     var timings = attrs.timings;
     var overnight = attrs.overnight || {};
     var rows = [];
@@ -242,18 +269,18 @@ class LaundryWeatherCard extends HTMLElement {
     rows.push(this._timingRow(
       "Move outside",
       timings.move_outside_at
-        ? _lwEscape(_lwTime(timings.move_outside_at, locale)) +
+        ? _lwEscape(_lwTime(timings.move_outside_at, fmt)) +
           ' <em class="cd" data-at="' + _lwEscape(timings.move_outside_at) +
-          '">' + _lwEscape(_lwCountdown(timings.move_outside_at, locale)) + "</em>"
+          '">' + _lwEscape(_lwCountdown(timings.move_outside_at, fmt)) + "</em>"
         : "Not worth it today"
     ));
 
     if (timings.bring_in_by) {
       rows.push(this._timingRow(
         "Bring in by",
-        _lwEscape(_lwTime(timings.bring_in_by, locale)) +
+        _lwEscape(_lwTime(timings.bring_in_by, fmt)) +
         ' <em class="cd" data-at="' + _lwEscape(timings.bring_in_by) + '">' +
-        _lwEscape(_lwCountdown(timings.bring_in_by, locale)) + "</em>"
+        _lwEscape(_lwCountdown(timings.bring_in_by, fmt)) + "</em>"
       ));
     }
 
@@ -445,11 +472,14 @@ class LaundryWeatherCard extends HTMLElement {
     out.push('<text x="' + (L + 3) + '" y="' + (T + 6) + '" font-size="8" ' +
       'fill="var(--secondary-text-color)">now</text>');
 
+    var fmt = this._fmt();
     series.forEach(function (h, i) {
       if (i % every) { return; }
+      // Formatted from the timestamp rather than using the server's pre-baked
+      // hhmm, so the axis and the timing rows can never disagree.
       out.push('<text x="' + x(i) + '" y="' + (H - 6) + '" font-size="8.5" ' +
         'text-anchor="middle" fill="var(--secondary-text-color)">' +
-        _lwEscape(h.hhmm) + "</text>");
+        _lwEscape(_lwTime(h.ts, fmt) || h.hhmm) + "</text>");
     });
 
     return '<svg viewBox="0 0 ' + W + " " + H + '" role="img" ' +
@@ -513,7 +543,7 @@ class LaundryWeatherCard extends HTMLElement {
       (compact ? "" : this._forecast(attrs)) +
       this._switch(attrs) +
       '<div class="foot"><span>' +
-      _lwEscape(_lwTime(state.last_updated, this._locale())) +
+      _lwEscape(_lwTime(state.last_updated, this._fmt())) +
       '</span><span>v' + CARD_VERSION + "</span></div></div>";
 
     this.shadowRoot.innerHTML = this._styles() +
