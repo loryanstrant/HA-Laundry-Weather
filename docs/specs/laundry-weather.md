@@ -106,13 +106,24 @@ reading and reproduced it exactly (3.42 vs 3.42 hPa).
 
 **Card**
 
-13. The headline flips with conditions: *It Is a Good Day to Dry* / *It Is Not a Good Day to
-    Dry*, driven server-side so headline and entity can never disagree.
-14. The Klingon toggle swaps the headline and the mascot's speech bubble to
-    `QaDmoHlu'meH QaQ jajvam` / `QaDmoHlu'meH QaQbe' jajvam`.
-15. A mascot with a speech bubble, in **two states** — approving for a good drying day,
-    scowling for a bad one — toggled from the card's visual editor, with config options to
-    substitute your own images.
+13. The verdict flips with conditions: *It Is a Good Day to Dry* / *It Is Not a Good Day to
+    Dry*, decided server-side so the card and the entity can never disagree.
+14. The mascot is a **full-width banner** at the top of the card, in two states — approving
+    for a good drying day, scowling for a bad one — toggled from the card's visual editor,
+    with `image_good:` / `image_bad:` to substitute your own pictures.
+
+    *The supplied artwork carries its speech bubble text baked into the picture, so the
+    banner is the headline: there is no separate text verdict line. The verdict is preserved
+    in the image's `alt` text, which is what a screen reader reads and what shows if the
+    image fails to load.*
+15. The Klingon toggle puts `QaDmoHlu'meH QaQ jajvam` / `QaDmoHlu'meH QaQbe' jajvam` **inside
+    the speech bubble**, not as a caption beneath it.
+
+    *Because the English text is baked into the artwork, this is done by shipping pre-built
+    Klingon variants of each image rather than by overlaying text at runtime. The card only
+    ever picks one of four static pictures, so it holds no coordinates that could go stale.
+    A user-supplied custom image has no Klingon variant; there the Klingon line falls back to
+    a caption beneath the banner.*
 16. Status is conveyed by shape/fill **and words** — `●●●` Fast, `●●○` Moderate, `●○○` Slow,
     `○○○` Barely — never by colour. *(The owner is colour-blind: green/yellow/red/brown.)*
 17. The forecast strip charts three series for the next 24 hours — line under cover, line in
