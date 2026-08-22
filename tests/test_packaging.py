@@ -210,3 +210,59 @@ def test_brand_icon_corners_are_transparent(name: str) -> None:
 
     # And the artwork itself must still be there.
     assert alpha.getpixel((width // 2, height // 2)) == 255
+
+
+# --- blueprints -------------------------------------------------------------
+
+BLUEPRINTS = REPO / "blueprints" / "automation" / "loryanstrant"
+
+
+def _blueprint_files() -> list[Path]:
+    return sorted(BLUEPRINTS.glob("*.yaml"))
+
+
+def test_there_are_blueprints_to_ship() -> None:
+    assert _blueprint_files(), "no blueprints found"
+
+
+@pytest.mark.parametrize("path", _blueprint_files() or [None])
+def test_blueprint_parses_and_declares_itself(path: Path | None) -> None:
+    """A blueprint that fails to parse is invisible, not loud.
+
+    Home Assistant lists it with an `error` key and no name, so nothing tells
+    the user it is broken — they just never see it. One shipped with
+    `name: "Washing is on the line" switch`, which is a quoted scalar followed
+    by bare text and therefore not valid YAML at all.
+    """
+    if path is None:
+        pytest.skip("no blueprints yet")
+    import re
+
+    import yaml
+
+    # `!input` is a Home Assistant tag PyYAML does not know; swap it for a
+    # placeholder so the structure can still be checked here.
+    text = re.sub(r"!input\s+(\S+)", r"'INPUT_\1'", path.read_text(encoding="utf-8"))
+    data = yaml.safe_load(text)
+
+    meta = data["blueprint"]
+    assert meta["domain"] == "automation"
+    assert meta["name"].startswith("Laundry Weather")
+    assert meta["input"], "a blueprint with no inputs cannot be configured"
+
+
+@pytest.mark.parametrize("path", _blueprint_files() or [None])
+def test_blueprint_source_url_points_at_itself(path: Path | None) -> None:
+    """A copy-pasted source_url silently sends imports to the wrong file.
+
+    Nothing errors — the user just imports a different blueprint from the one
+    they clicked, which is far more confusing than a failure.
+    """
+    if path is None:
+        pytest.skip("no blueprints yet")
+    text = path.read_text(encoding="utf-8")
+    found = re.search(r"source_url:\s*(\S+)", text)
+    assert found, f"{path.name} has no source_url"
+    assert found.group(1).endswith(f"/{path.name}"), (
+        f"{path.name} points its source_url at {found.group(1)}"
+    )

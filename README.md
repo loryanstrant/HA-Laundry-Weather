@@ -95,6 +95,29 @@ else degrades gracefully — see [what else is worth having](#what-else-is-worth
 
 ---
 
+## Telling you to bring it in
+
+The card only helps if you happen to be looking at it. Two blueprints turn the same signals
+into a notification — one for your phone, one spoken aloud.
+
+| | |
+|---|---|
+| **Push notification** | [![Open your Home Assistant instance and show the blueprint import dialog.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Floryanstrant%2FHA-Laundry-Weather%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Floryanstrant%2Flaundry_weather_bring_it_in_push.yaml) |
+| **Spoken announcement** | [![Open your Home Assistant instance and show the blueprint import dialog.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Floryanstrant%2FHA-Laundry-Weather%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Floryanstrant%2Flaundry_weather_bring_it_in_tts.yaml) |
+
+Both alert on four things, each of which you can turn off individually:
+
+- **Rain has started** — the one that saves a load
+- **Nothing is drying any more** — sunset reached, or the score dropped below the cutoff
+- **The bring-in time is approaching** — with however much warning you want
+- **Dew will re-wet it overnight**
+
+**Every alert is gated on the washing actually being out**, using the switch the integration
+creates (or your own helper). An empty line never notifies you. Messages say *why*, and the
+spoken one keeps quiet hours so it does not announce at 3am.
+
+---
+
 <details>
 <summary><b>How the score is worked out — vapour pressure deficit, wind, sun, and why bands not hours</b></summary>
 
