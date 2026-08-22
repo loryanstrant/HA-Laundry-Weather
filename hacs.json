@@ -1,0 +1,9 @@
+{
+  "name": "Laundry Weather",
+  "content_in_root": false,
+  "zip_release": true,
+  "filename": "laundry_weather.zip",
+  "hide_default_branch": false,
+  "render_readme": true,
+  "homeassistant": "2024.11.0"
+}
