@@ -15,7 +15,7 @@
  * each of which works on its own.
  */
 
-var CARD_VERSION = "0.1.0";
+var CARD_VERSION = "0.2.0";
 
 var STATIC_BASE = "/laundry_weather_static";
 
@@ -47,6 +47,8 @@ var DEFAULTS = {
   forecast_hours: 24,
   klingon: null,
   compact: false,
+  // "auto" follows Home Assistant; "12" and "24" override it.
+  time_format: "auto",
   image_good: "",
   image_bad: "",
 };
@@ -66,10 +68,15 @@ function _lwEscape(text) {
  * not. And the 12/24-hour choice is a Home Assistant setting, so taking the
  * browser default put "02:00 AM" in the timings above a chart labelled 19:00.
  */
-function _lwFormatters(hass) {
+function _lwFormatters(hass, override) {
   var locale = (hass && hass.locale && hass.locale.language) || navigator.language;
   var zone = (hass && hass.config && hass.config.time_zone) || undefined;
-  var format = hass && hass.locale && hass.locale.time_format;
+  // The card's own setting wins; "auto" defers to Home Assistant. Worth having
+  // because a locale like en-GB defaults to 24-hour and there is otherwise no
+  // way to ask this card for 12 without changing it for the whole frontend.
+  var format = (override && override !== "auto")
+    ? override
+    : (hass && hass.locale && hass.locale.time_format);
   var hour12;
   if (format === "12") { hour12 = true; }
   else if (format === "24") { hour12 = false; }
@@ -151,6 +158,7 @@ class LaundryWeatherCard extends HTMLElement {
     }
     this._config = Object.assign({}, DEFAULTS, config);
     this._lastDataJSON = "";
+    this._formatters = null;
     if (this._hass) { this._render(); }
   }
 
@@ -196,7 +204,9 @@ class LaundryWeatherCard extends HTMLElement {
   }
 
   _fmt() {
-    if (!this._formatters) { this._formatters = _lwFormatters(this._hass); }
+    if (!this._formatters) {
+      this._formatters = _lwFormatters(this._hass, this._config.time_format);
+    }
     return this._formatters;
   }
 
@@ -282,6 +292,10 @@ class LaundryWeatherCard extends HTMLElement {
     var overnight = attrs.overnight || {};
     var rows = [];
 
+    // Nothing drying means there is no deadline. Showing a countdown here once
+    // told the user they had 52 minutes, four hours after sunset.
+    var notDrying = timings.bring_in_source === "not_drying";
+
     rows.push(this._timingRow(
       "Move outside",
       timings.move_outside_at
@@ -291,7 +305,9 @@ class LaundryWeatherCard extends HTMLElement {
         : "Not worth it today"
     ));
 
-    if (timings.bring_in_by) {
+    if (notDrying) {
+      rows.push(this._timingRow("Bring in by", "Not drying now"));
+    } else if (timings.bring_in_by) {
       rows.push(this._timingRow(
         "Bring in by",
         _lwEscape(_lwTime(timings.bring_in_by, fmt)) +
@@ -706,6 +722,14 @@ class LaundryWeatherCardEditor extends HTMLElement {
       "<label>Card title (optional)<input type=\"text\" data-key=\"title\" " +
       'value="' + _lwEscape(config.title) + '"></label>' +
       toggles +
+      "<label>Clock format" +
+      "<select data-key=\"time_format\">" +
+      ["auto", "12", "24"].map(function (v) {
+        var label = v === "auto" ? "Follow Home Assistant"
+          : (v === "12" ? "12-hour (2:30 PM)" : "24-hour (14:30)");
+        return '<option value="' + v + '"' +
+          (config.time_format === v ? " selected" : "") + ">" + label + "</option>";
+      }).join("") + "</select></label>" +
       "<label>Hours on the forecast chart<input type=\"number\" min=\"6\" " +
       'max="48" data-key="forecast_hours" value="' +
       _lwEscape(config.forecast_hours) + '"></label>' +

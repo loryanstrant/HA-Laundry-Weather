@@ -95,7 +95,10 @@ else degrades gracefully — see [what else is worth having](#what-else-is-worth
 
 ---
 
-## How the score is worked out
+<details>
+<summary><b>How the score is worked out — vapour pressure deficit, wind, sun, and why bands not hours</b></summary>
+
+### How the score is worked out
 
 The honest version, because the number on the card is meaningless if you do not know what it
 is measuring.
@@ -210,8 +213,15 @@ best indoor room by **15%** before it wins. Without that margin the answer flip-
 that same margin, capped at sunset. If no hour qualifies, it says so — "not worth it today" is
 a real answer, not a missing one.
 
-**Bring in by** is the first upcoming hour where *both* outdoor positions drop below the
-cutoff, or sunset, whichever comes first. It uses whichever position is better because the
+**Bring in by** only answers when there is a drying day left to answer for. After sunset, in
+rain, or when the score is already below the cutoff, the card says **"Not drying now"** rather
+than a countdown — an earlier version scanned overnight hours and cheerfully offered
+"bring it in by 11pm, in 52 minutes" four hours after dark, which read as a grace period that
+did not exist. The `drying_now` attribute on the recommendation sensor exposes the same signal
+if you want to automate on it.
+
+While drying *is* happening, it is the first upcoming hour where *both* outdoor positions drop
+below the cutoff, or sunset, whichever comes first. It uses whichever position is better because the
 line is movable: as long as either is still drying, there is a reason to leave it out.
 
 **It is computed with no reference to "move outside at", deliberately.** In the version this
@@ -238,9 +248,14 @@ Laundry Weather applies a ten-minute smoothing average of its own. If you alread
 a Statistics helper that averages for you, tick *"this sensor is already averaged"* and it
 leaves it alone.
 
+</details>
+
 ---
 
-## What else is worth having installed
+<details>
+<summary><b>What else is worth having installed — weather station, room sensors, sun, forecast, rain</b></summary>
+
+### What else is worth having installed
 
 Laundry Weather reads sensors you choose, so it works with whatever you have. This is what
 each addition actually buys you, and what happens without it.
@@ -305,9 +320,14 @@ checks on each other.
 *Without either:* it assumes dry. The forecast still warns you about rain that is coming; it
 just will not know about rain that has already started.
 
+</details>
+
 ---
 
-## Entities
+<details>
+<summary><b>Entities — what the integration creates</b></summary>
+
+### Entities
 
 One device, with:
 
@@ -328,9 +348,14 @@ One device, with:
 
 Two services: `laundry_weather.refresh` and `laundry_weather.set_washing_out`.
 
+</details>
+
 ---
 
-## The card
+<details>
+<summary><b>The card — configuration options and how to read the chart</b></summary>
+
+### The card
 
 ```yaml
 type: custom:laundry-weather-card
@@ -352,6 +377,7 @@ editor, so you never have to write this by hand.
 | `show_switch` | `true` | The "washing is on the line" button |
 | `forecast_hours` | `24` | How far ahead the chart looks (6–48) |
 | `klingon` | follows the integration | Klingon headings |
+| `time_format` | `auto` | `auto` follows Home Assistant, or force `12` / `24` |
 | `compact` | `false` | Headline and timings only |
 | `image_good` / `image_bad` | bundled | Your own pictures instead |
 
@@ -367,9 +393,14 @@ named down the left-hand side.
 plus the word — `●●●` Fast, `●●○` Moderate, `●○○` Slow, `○○○` Barely — so the card reads
 correctly for colour-blind users and in every theme.
 
+</details>
+
 ---
 
-## About the Klingon
+<details>
+<summary><b>About the Klingon — and why it is not canon</b></summary>
+
+### About the Klingon
 
 The Klingon toggle swaps the headline to `QaDmoHlu'meH QaQ jajvam` on a good drying day and
 `QaDmoHlu'meH QaQbe' jajvam` on a bad one, modelled on the canonical proverb *Heghlu'meH QaQ
@@ -388,6 +419,8 @@ orthographically approximate. It looks the part; do not use it to learn pIqaD.
 
 It is a string swap, not translation. Entity states stay in English whatever you set, so
 nothing you have automated breaks when you flip it.
+
+</details>
 
 ---
 

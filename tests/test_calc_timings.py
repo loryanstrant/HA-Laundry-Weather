@@ -166,3 +166,99 @@ def test_timings_survive_a_series_that_starts_after_sunset() -> None:
     bring_by, source = calc.bring_in_by(tomorrow, SUNSET)
     assert bring_by == SUNSET
     assert source == "sunset"
+
+
+# --- is the drying day still running? ---------------------------------------
+#
+# The card once offered "bring in by 11:00 PM — in 52 min" at 22:09, four hours
+# after sunset, with the forecast showing 8 °C at 97% humidity. bring_in_by
+# scanned forward, found that 11pm was below the floor, and reported it as a
+# deadline. There was no drying day left to have a deadline in.
+
+
+def test_after_sunset_there_is_no_deadline_to_give() -> None:
+    """The exact shape of the bug: a below-floor hour just after dark."""
+    tonight = series((23, 0.3, 0.2), (0, 0.0, 0.0), (1, 0.4, 0.3))
+    _when, reason = calc.bring_in_by(tonight, SUNSET, drying_now=False)
+    assert reason == "not_drying"
+
+
+def test_a_real_deadline_still_comes_back_during_the_day() -> None:
+    """The fix must not simply suppress the feature."""
+    afternoon = series((12, 9.0, 7.0), (14, 8.0, 6.0), (16, 1.0, 1.2))
+    when, reason = calc.bring_in_by(afternoon, SUNSET, drying_now=True)
+    assert reason == "score_drop"
+    assert when == hour(16)
+
+
+def test_drying_now_defaults_to_true() -> None:
+    """Existing callers keep their behaviour; the guard is opt-in."""
+    afternoon = series((12, 9.0, 7.0), (16, 1.0, 1.2))
+    assert calc.bring_in_by(afternoon, SUNSET)[1] == "score_drop"
+
+
+def test_it_still_returns_a_time_when_nothing_is_drying() -> None:
+    """The reason says how to read it; the value is still there for callers."""
+    when, reason = calc.bring_in_by(series((23, 0.1, 0.1)), SUNSET, drying_now=False)
+    assert isinstance(when, datetime)
+    assert reason == "not_drying"
+
+
+@pytest.mark.parametrize(
+    ("wet", "sun", "cover", "day_over", "expected"),
+    [
+        (False, 9.0, 7.0, False, True),    # ordinary drying afternoon
+        (True, 9.0, 7.0, False, False),    # raining on it
+        (False, 0.3, 0.2, False, False),   # below the floor
+        (False, 9.0, 7.0, True, False),    # sun already down
+    ],
+)
+def test_assess_decides_whether_the_drying_day_is_running(
+    wet: bool, sun: float, cover: float, day_over: bool, expected: bool
+) -> None:
+    """Rain, a dead score, or darkness each end it on their own."""
+    from custom_components.laundry_weather.calc import Tuning, assess
+
+    # Work back to the outdoor VPD that produces the wanted cover score, so the
+    # assessment is driven the same way the coordinator drives it.
+    wn = 0.5
+    vpd = cover / (0.55 + 0.45 * wn)
+    sun_factor = sun / (vpd * (0.8 + 0.6 * wn)) if vpd else 1.0
+
+    result = assess(
+        rooms={"Sunroom": 8.0},
+        vpd_out=vpd,
+        wn=wn,
+        sun_factor=sun_factor,
+        wet=wet,
+        series=series((23, 0.2, 0.1)),
+        sun_model="uv",
+        now=hour(22),
+        sunset=SUNSET,
+        dewpoint_now=9.0,
+        washing_out=True,
+        tuning=Tuning(),
+        day_over=day_over,
+    )
+    assert result.drying_now is expected
+    if not expected:
+        assert result.bring_by_source == "not_drying"
+
+
+def test_the_advice_does_not_promise_a_deadline_after_dark() -> None:
+    """The sentence and the card must not contradict each other."""
+    text = calc.build_advice(
+        spot=calc.COVERED_LINE,
+        score=0.3,
+        band_word="Barely",
+        sun=0.3,
+        cov=0.2,
+        move_at=None,
+        bring_by=SUNSET,
+        window_text=None,
+        dew=True,
+        washing_out=True,
+        drying_now=False,
+    )
+    assert "in by" not in text
+    assert "nothing is drying" in text.lower()
