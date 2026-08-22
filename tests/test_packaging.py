@@ -187,3 +187,26 @@ def test_every_image_the_readme_points_at_exists() -> None:
         if (REPO / r).stat().st_size > 400 * 1024
     ]
     assert not heavy, f"README images are too heavy: {heavy}"
+
+
+@pytest.mark.parametrize("name", ["icon.png", "icon@2x.png"])
+def test_brand_icon_corners_are_transparent(name: str) -> None:
+    """The icon sits on a dark background in half of Home Assistant's themes.
+
+    The artwork was cut from a screenshot, so it arrived carrying the source
+    page's off-white background in its rounded corners plus a pale outline
+    ring. Both showed up as a white halo on the dark theme. `make_brand_icons.py`
+    removes them; this makes sure a regeneration cannot quietly bring them back.
+    """
+    from PIL import Image
+
+    icon = Image.open(COMPONENT / "brand" / name).convert("RGBA")
+    alpha = icon.getchannel("A")
+    width, height = icon.size
+
+    corners = [(2, 2), (width - 3, 2), (2, height - 3), (width - 3, height - 3)]
+    opaque = [c for c in corners if alpha.getpixel(c) > 32]
+    assert not opaque, f"{name} has opaque corners at {opaque} — the halo is back"
+
+    # And the artwork itself must still be there.
+    assert alpha.getpixel((width // 2, height // 2)) == 255

@@ -22,7 +22,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageFilter
 
 BRAND = (
     Path(__file__).resolve().parent.parent
@@ -34,11 +34,68 @@ SOURCE = BRAND / "logo-source.png"
 SIZES = {"icon.png": 256, "icon@2x.png": 512}
 
 
+def is_tile(pixel) -> bool:
+    """Is this the saturated blue of the icon tile itself?
+
+    Deliberately excludes two things that are *not* the artwork: the warm
+    off-white the source was cut out of, and the tile's own pale-cyan outline
+    ring. Both have a high red channel; the tile blue does not.
+    """
+    r, g, b = pixel[:3]
+    return r < 150 and b > 150
+
+
+def cut_out_tile(art: Image.Image) -> Image.Image:
+    """Make everything around the tile transparent.
+
+    The artwork was cut from a screenshot of a results grid, so it arrives with
+    the grid's background filling the rounded corners *and* a pale outline ring
+    around the tile. On a dark Home Assistant theme both show up as a white
+    halo, which is what prompted this.
+
+    Flooding inward from the four corners across everything that is not tile
+    blue removes both in one pass. The white shirt and socks are safe: they sit
+    inside the blue, so the flood cannot reach them.
+    """
+    art = art.convert("RGBA")
+    width, height = art.size
+    pixels = art.load()
+
+    outside: set[tuple[int, int]] = set()
+    stack = [
+        corner
+        for corner in ((0, 0), (width - 1, 0), (0, height - 1), (width - 1, height - 1))
+        if not is_tile(pixels[corner])
+    ]
+    outside.update(stack)
+    while stack:
+        x, y = stack.pop()
+        for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+            if not (0 <= nx < width and 0 <= ny < height):
+                continue
+            if (nx, ny) in outside or is_tile(pixels[nx, ny]):
+                continue
+            outside.add((nx, ny))
+            stack.append((nx, ny))
+
+    mask = Image.new("L", (width, height), 255)
+    mask_px = mask.load()
+    for x, y in outside:
+        mask_px[x, y] = 0
+    # A hair of feathering, or the rounded corner reads as stair-steps.
+    mask = mask.filter(ImageFilter.GaussianBlur(0.6))
+
+    cut = art.copy()
+    cut.putalpha(mask)
+    print(f"made {len(outside):,} px transparent (background and outline ring)")
+    return cut
+
+
 def main() -> int:
     if not SOURCE.exists():
         raise SystemExit(f"missing source artwork: {SOURCE}")
 
-    art = Image.open(SOURCE).convert("RGBA")
+    art = cut_out_tile(Image.open(SOURCE))
     if art.width != art.height:
         # Home Assistant expects a square icon; centre-crop rather than squash.
         side = min(art.size)
