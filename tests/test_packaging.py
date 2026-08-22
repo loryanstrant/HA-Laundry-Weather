@@ -57,6 +57,43 @@ def test_card_version_matches_manifest(card: Path | None) -> None:
     )
 
 
+BUNDLED_BANNERS = (
+    "worf-good.png",
+    "worf-bad.png",
+    "worf-good-klingon.png",
+    "worf-bad-klingon.png",
+)
+
+
+@pytest.mark.parametrize("name", BUNDLED_BANNERS)
+def test_bundled_banner_exists_and_is_small(name: str) -> None:
+    """Banners are served on every card render, so weight matters.
+
+    The source artwork is around a megabyte each; the shipped versions are
+    trimmed, resized and quantised by `scripts/make_stickers.py`. If somebody
+    drops a raw source file in here, this catches it.
+    """
+    banner = WWW / name
+    assert banner.exists(), f"{name} is missing — run scripts/make_stickers.py"
+    size = banner.stat().st_size
+    assert size < 80 * 1024, f"{name} is {size // 1024} KB, which is too heavy"
+
+
+def test_every_banner_has_a_klingon_variant() -> None:
+    """The card picks a static file per state; a missing one renders broken."""
+    for name in ("worf-good.png", "worf-bad.png"):
+        variant = WWW / name.replace(".png", "-klingon.png")
+        assert variant.exists(), f"no Klingon variant for {name}"
+
+
+def test_the_card_registers_its_elements() -> None:
+    """A card that defines no custom element silently does nothing."""
+    source = (WWW / "laundry-weather-card.js").read_text(encoding="utf-8")
+    assert 'customElements.define("laundry-weather-card"' in source
+    assert 'customElements.define("laundry-weather-card-editor"' in source
+    assert "window.customCards.push" in source
+
+
 def test_translations_match_strings() -> None:
     """`translations/en.json` must be a copy of `strings.json`.
 
