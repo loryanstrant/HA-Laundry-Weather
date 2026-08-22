@@ -133,3 +133,31 @@ def test_every_field_has_helper_text() -> None:
             if field not in descriptions:
                 missing.append(f"{step.get('title', '?')}.{field}")
     assert not missing, f"fields with no data_description: {missing}"
+
+
+def test_manifest_keys_are_sorted_the_way_hassfest_wants() -> None:
+    """`domain`, `name`, then everything else alphabetically.
+
+    Home Assistant's hassfest action enforces this and fails the build over it.
+    It shipped wrong once — `codeowners` sat before `after_dependencies` — and
+    the only signal was a red CI run after the release had been cut.
+    """
+    keys = list(json.loads((COMPONENT / "manifest.json").read_text(encoding="utf-8")))
+    assert keys[0] == "domain"
+    assert keys[1] == "name"
+    assert keys[2:] == sorted(keys[2:]), f"rest must be alphabetical, got {keys[2:]}"
+
+
+@pytest.mark.parametrize(("name", "expected"), [("icon.png", 256), ("icon@2x.png", 512)])
+def test_brand_icons_exist_at_the_size_hacs_expects(name: str, expected: int) -> None:
+    """HACS fails validation without these, or a listing in the brands repo."""
+    icon = COMPONENT / "brand" / name
+    assert icon.exists(), f"{name} is missing — run scripts/make_brand_icons.py"
+
+    # PNG dimensions live in the IHDR chunk, 16 bytes in. Read them directly
+    # rather than adding an image library just for this.
+    header = icon.read_bytes()[:24]
+    assert header[:8] == b"\x89PNG\r\n\x1a\n", f"{name} is not a PNG"
+    width = int.from_bytes(header[16:20], "big")
+    height = int.from_bytes(header[20:24], "big")
+    assert (width, height) == (expected, expected), f"{name} is {width}x{height}"

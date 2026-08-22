@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Brand icon source. HACS wants PNGs at brand/icon.png (256px) and
+  brand/icon@2x.png (512px); those are rendered from this file by
+  scripts/make_brand_icons.py so the shapes stay editable.
+
+  A shirt on a line under a sun: the two halves of the question this answers.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <rect width="256" height="256" rx="56" fill="#1f6feb"/>
+
+  <!-- sun -->
+  <circle cx="188" cy="66" r="26" fill="#ffd23f"/>
+  <g stroke="#ffd23f" stroke-width="7" stroke-linecap="round">
+    <path d="M188 20v14"/>
+    <path d="M188 98v14"/>
+    <path d="M142 66h14"/>
+    <path d="M220 66h14"/>
+    <path d="M155 33l10 10"/>
+    <path d="M211 89l10 10"/>
+    <path d="M221 33l-10 10"/>
+    <path d="M165 89l-10 10"/>
+  </g>
+
+  <!-- washing line -->
+  <path d="M24 104q104 26 208 0" fill="none" stroke="#ffffff" stroke-width="6"
+        stroke-linecap="round" opacity="0.9"/>
+
+  <!-- shirt hanging from it -->
+  <path d="M84 122l30-14 8 8a12 12 0 0 0 20 0l8-8 30 14-10 32-16-6v70H110v-70l-16 6z"
+        fill="#ffffff"/>
+
+  <!-- pegs -->
+  <rect x="107" y="104" width="8" height="18" rx="3" fill="#ffd23f"/>
+  <rect x="163" y="104" width="8" height="18" rx="3" fill="#ffd23f"/>
+</svg>
