@@ -1,0 +1,241 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Laundry Weather",
+        "description": "This works out where washing will dry fastest right now — each indoor room, the line under cover, or the same line pulled out into the sun — and tells you when to move it and when to bring it in.\n\nIt needs a handful of sensors you probably already have. It only reads them; nothing on your system is changed.",
+        "data": {
+          "name": "What to call this setup",
+          "weather_entity": "Weather forecast"
+        },
+        "data_description": {
+          "name": "This shows up in front of every entity name. If you only have one washing line, leave it as it is.",
+          "weather_entity": "Used to look ahead: when to take washing out, when to bring it in, and the best stretch of the next two days. Pick one that gives an hourly forecast — BOM, Met.no and OpenWeatherMap all do. If yours is daily-only, the current scores still work but the timing lines stay empty."
+        }
+      },
+      "outdoor": {
+        "title": "Outside",
+        "description": "These decide how fast washing dries outdoors. Temperature and humidity together do most of the work; wind speeds things up.\n\nIf you have your own weather station, use its sensors rather than a forecast provider's — the readings from your own garden are what matter.",
+        "data": {
+          "outdoor_temperature": "Outdoor temperature",
+          "outdoor_humidity": "Outdoor humidity",
+          "dewpoint": "Dew point",
+          "wind_speed": "Wind speed",
+          "wind_gust": "Wind gusts"
+        },
+        "data_description": {
+          "outdoor_temperature": "Air temperature outside, in the shade rather than sitting in the sun. Celsius or Fahrenheit both work.",
+          "outdoor_humidity": "How damp the air is, as a percentage. Air that is already full of water cannot take much more out of your washing.",
+          "dewpoint": "Optional. Used for the overnight check: if tonight gets colder than the dew point, dew will re-wet anything you left out.",
+          "wind_speed": "Optional. Wind helps a great deal up to about 20 km/h and then stops helping. Any unit — it is converted for you.",
+          "wind_gust": "Optional. Not part of the score. Shown on the card so you can judge whether the pegs will hold."
+        }
+      },
+      "sun": {
+        "title": "Sun and sky",
+        "description": "How bright it actually is out there. This is what separates the line in the sun from the line under cover — on a clear day the sun nearly doubles the drying rate, and under thick cloud it adds nothing at all.\n\nEverything here is optional. Without it, the covered line and your rooms are still scored properly; only the sunny-line figure is affected.",
+        "data": {
+          "solar_radiation": "Sunshine sensor",
+          "solar_presmoothed": "This sensor is already averaged",
+          "sun_elevation": "Sun height",
+          "sunset": "Sunset time"
+        },
+        "data_description": {
+          "solar_radiation": "A solar radiation reading in watts per square metre, usually from a weather station. This measures how much sun is really getting through, rather than what was forecast.",
+          "solar_presmoothed": "Tick this only if you picked a Statistics or averaging helper. Left unticked, Laundry Weather smooths the reading itself, so one passing cloud cannot flip the recommendation.",
+          "sun_elevation": "Optional. How high the sun is above the horizon, in degrees. Leave this empty to use Home Assistant's own sun tracker, which is what almost everyone should do.",
+          "sunset": "Optional. Leave empty to use Home Assistant's own sunset time. Washing never comes in later than sunset, whatever the numbers say."
+        }
+      },
+      "rain": {
+        "title": "Rain",
+        "description": "So the sunny line stops being recommended when it is raining on it.\n\nBoth of these are optional. Without either, Laundry Weather assumes it is dry — the forecast still warns you about rain on the way.",
+        "data": {
+          "rain_detector": "Rain sensor",
+          "rain_dry_state": "What it says when it is dry",
+          "rain_rate": "Rainfall rate"
+        },
+        "data_description": {
+          "rain_detector": "Optional. A sensor that reports whether it is raining right now.",
+          "rain_dry_state": "The exact word your rain sensor shows when it is not raining — often No, Dry or Off. Anything else is read as rain. Capitals do not matter.",
+          "rain_rate": "Optional. Rainfall in millimetres per hour. Acts as a second opinion, so light rain is caught even if the sensor above has not noticed yet."
+        }
+      },
+      "room": {
+        "title": "A drying room",
+        "description": "Now the indoor options. Add every room you would actually hang washing in — a sunroom, the laundry, a spare room with a good window.\n\nAdd more than one if you have them. They often trade places through the day, and the whole point is being told which one is winning right now.",
+        "data": {
+          "room_name": "Room name",
+          "room_temperature": "Temperature in this room",
+          "room_humidity": "Humidity in this room",
+          "add_another": "Add another room"
+        },
+        "data_description": {
+          "room_name": "What you call it — Sunroom, Laundry, Spare room. This is the name you will see on the card.",
+          "room_temperature": "A temperature sensor in that room.",
+          "room_humidity": "A humidity sensor in that room. Both readings are needed; a room with only one is not scored.",
+          "add_another": "Tick this to add another room after saving this one."
+        }
+      }
+    },
+    "error": {
+      "empty_room_name": "Please give the room a name.",
+      "duplicate_room_name": "You already have a room with that name."
+    },
+    "abort": {
+      "already_configured": "This setup already exists."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Laundry Weather settings",
+        "description": "What would you like to change?",
+        "menu_options": {
+          "tuning": "Fine-tune the scoring",
+          "display": "Card and display",
+          "add_room": "Add a drying room",
+          "remove_room": "Remove a drying room",
+          "sensors": "Change the sensors"
+        }
+      },
+      "tuning": {
+        "title": "Fine-tune the scoring",
+        "description": "These are the numbers behind the advice. The defaults are deliberately cautious — the sun setting in particular is a starting guess, meant to be adjusted once you have watched a few real loads dry.\n\nNothing here can break anything. If it stops making sense, put them back to 1.2, 1.15, 2.5, 12, 6 and 3.",
+        "data": {
+          "sun_coeff": "How much the sun helps",
+          "outside_margin": "How much better outside has to be",
+          "bring_in_floor": "When to call it a day",
+          "band_fast": "Fast starts at",
+          "band_moderate": "Moderate starts at",
+          "band_slow": "Slow starts at",
+          "forecast_sun_model": "How the forecast judges sunshine"
+        },
+        "data_description": {
+          "sun_coeff": "1.2 means full midday sun makes the exposed line dry a little over twice as fast as the same air under cover. Raise it if the sunny line does better than predicted; lower it if it over-promises.",
+          "outside_margin": "1.15 means outside has to beat your best room by 15% before it is recommended. This is what stops the answer flipping between the sunroom and the line every few minutes as cloud passes.",
+          "bring_in_floor": "Once the best outdoor spot drops below this, nothing more is drying — so that is when to bring it in.",
+          "band_fast": "Scores at or above this are called Fast. Roughly 'dry in an hour or two' on a good day.",
+          "band_moderate": "Scores at or above this are called Moderate. Below the Fast figure and above this one.",
+          "band_slow": "Scores at or above this are called Slow. Below it, Barely.",
+          "forecast_sun_model": "Leave on Automatic. It uses the UV index when your forecast provides one, and cloud cover when it does not — some providers, Met.no among them, give no UV index at all."
+        }
+      },
+      "display": {
+        "title": "Card and display",
+        "description": "How the card reads. None of this changes the scoring.",
+        "data": {
+          "klingon": "Klingon headings",
+          "show_mascot": "Show the mascot",
+          "forecast_hours": "Hours on the forecast chart",
+          "external_washing_entity": "Use an existing on-the-line switch"
+        },
+        "data_description": {
+          "klingon": "Swaps the card's headline and the mascot's speech bubble into Klingon. Everything else, including entity names, stays in English — so nothing you have automated will break. The Klingon is made up rather than taken from the dictionary; there is a note about it in the documentation.",
+          "show_mascot": "Whether the card shows the mascot and speech bubble by default. Each card can override this.",
+          "forecast_hours": "How far ahead the drying chart looks. 24 hours suits most people.",
+          "external_washing_entity": "Optional. If you already have a helper tracking whether washing is out, pick it here and Laundry Weather will use it instead of its own switch — so any automations you have built keep working."
+        }
+      },
+      "add_room": {
+        "title": "Add a drying room",
+        "description": "Another place you would hang washing indoors.",
+        "data": {
+          "room_name": "Room name",
+          "room_temperature": "Temperature in this room",
+          "room_humidity": "Humidity in this room",
+          "add_another": "Add another room"
+        },
+        "data_description": {
+          "room_name": "What you call it — this is the name that shows on the card.",
+          "room_temperature": "A temperature sensor in that room.",
+          "room_humidity": "A humidity sensor in that room.",
+          "add_another": "Not used here — add rooms one at a time from this menu."
+        }
+      },
+      "remove_room": {
+        "title": "Remove a drying room",
+        "description": "Tick any rooms you no longer want scored. Their sensors are removed along with them.",
+        "data": {
+          "remove_rooms": "Rooms to remove"
+        },
+        "data_description": {
+          "remove_rooms": "Leave everything unticked to change nothing."
+        }
+      },
+      "sensors": {
+        "title": "Change the sensors",
+        "description": "The same sensor questions from setup, filled in with what you chose last time. Change anything that has moved or been replaced.",
+        "data": {
+          "outdoor_temperature": "Outdoor temperature",
+          "outdoor_humidity": "Outdoor humidity",
+          "dewpoint": "Dew point",
+          "wind_speed": "Wind speed",
+          "wind_gust": "Wind gusts",
+          "solar_radiation": "Sunshine sensor",
+          "solar_presmoothed": "This sensor is already averaged",
+          "sun_elevation": "Sun height",
+          "sunset": "Sunset time",
+          "rain_detector": "Rain sensor",
+          "rain_dry_state": "What it says when it is dry",
+          "rain_rate": "Rainfall rate"
+        },
+        "data_description": {
+          "outdoor_temperature": "Air temperature outside, in the shade.",
+          "outdoor_humidity": "How damp the outside air is, as a percentage.",
+          "dewpoint": "Optional. Used for the overnight dew check.",
+          "wind_speed": "Optional. Helps up to about 20 km/h, then stops helping.",
+          "wind_gust": "Optional. Shown on the card, not part of the score.",
+          "solar_radiation": "Optional. Watts per square metre, usually from a weather station.",
+          "solar_presmoothed": "Tick only if this is already a Statistics or averaging helper.",
+          "sun_elevation": "Optional. Leave empty to use Home Assistant's own sun tracker.",
+          "sunset": "Optional. Leave empty to use Home Assistant's own sunset time.",
+          "rain_detector": "Optional. Reports whether it is raining right now.",
+          "rain_dry_state": "The exact word it shows when it is not raining.",
+          "rain_rate": "Optional. Millimetres per hour, as a second opinion."
+        }
+      }
+    },
+    "error": {
+      "empty_room_name": "Please give the room a name.",
+      "duplicate_room_name": "You already have a room with that name.",
+      "bands_not_descending": "Fast has to be higher than Moderate, and Moderate higher than Slow."
+    }
+  },
+  "selector": {
+    "forecast_sun_model": {
+      "options": {
+        "auto": "Automatic (recommended)",
+        "uv": "UV index",
+        "cloud": "Cloud cover",
+        "elevation": "Time of day only"
+      }
+    }
+  },
+  "services": {
+    "refresh": {
+      "name": "Refresh",
+      "description": "Re-read the sensors and work out the advice again straight away.",
+      "fields": {
+        "entry_id": {
+          "name": "Setup",
+          "description": "Which setup to refresh. Leave empty for all of them."
+        }
+      }
+    },
+    "set_washing_out": {
+      "name": "Set washing on the line",
+      "description": "Tell Laundry Weather whether there is washing out at the moment.",
+      "fields": {
+        "entry_id": {
+          "name": "Setup",
+          "description": "Which setup to update. Leave empty for all of them."
+        },
+        "washing_out": {
+          "name": "Washing is on the line",
+          "description": "On when you hang a load out, off when you bring it in."
+        }
+      }
+    }
+  }
+}

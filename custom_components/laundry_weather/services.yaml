@@ -1,0 +1,36 @@
+refresh:
+  name: Refresh
+  description: >-
+    Re-read the sensors and re-work out the drying advice straight away,
+    instead of waiting for the next automatic update.
+  fields:
+    entry_id:
+      name: Setup
+      description: >-
+        Which Laundry Weather setup to refresh. Leave empty to refresh all of
+        them.
+      required: false
+      selector:
+        text:
+
+set_washing_out:
+  name: Set washing on the line
+  description: >-
+    Tell Laundry Weather whether there is washing out at the moment. This
+    changes what the advice leads with — when washing is out, the first thing
+    it says is when to bring it in.
+  fields:
+    entry_id:
+      name: Setup
+      description: >-
+        Which Laundry Weather setup to update. Leave empty to update all of
+        them.
+      required: false
+      selector:
+        text:
+    washing_out:
+      name: Washing is on the line
+      description: Turn on when you hang a load out, off when you bring it in.
+      required: true
+      selector:
+        boolean:
