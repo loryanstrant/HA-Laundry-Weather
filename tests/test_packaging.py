@@ -266,3 +266,40 @@ def test_blueprint_source_url_points_at_itself(path: Path | None) -> None:
     assert found.group(1).endswith(f"/{path.name}"), (
         f"{path.name} points its source_url at {found.group(1)}"
     )
+
+
+BUNDLED_BLUEPRINTS = (
+    COMPONENT / "blueprints" / "automation" / "loryanstrant"
+)
+
+
+def test_the_component_bundles_the_blueprints() -> None:
+    """They ship inside the component so they install themselves.
+
+    Home Assistant only loads blueprints from `config/blueprints`, so the
+    integration copies them across at setup. If they are not in the zip there
+    is nothing to copy, and the feature silently does not exist for anyone who
+    installed through HACS.
+    """
+    assert BUNDLED_BLUEPRINTS.is_dir(), "no blueprints bundled in the component"
+    assert sorted(p.name for p in BUNDLED_BLUEPRINTS.glob("*.yaml")), "bundle is empty"
+
+
+def test_the_two_blueprint_copies_have_not_drifted() -> None:
+    """The repo-root copy and the bundled copy must be byte-identical.
+
+    The root copy is what the README's import badges fetch; the bundled copy is
+    what gets installed. When they drift, a user importing by URL quietly gets
+    a different automation from the one the integration installed, and nothing
+    complains. This has already happened in HA-Personal-Hydration-Manager,
+    where the two copies differ by three bytes.
+    """
+    root = {p.name: p.read_bytes() for p in BLUEPRINTS.glob("*.yaml")}
+    bundled = {p.name: p.read_bytes() for p in BUNDLED_BLUEPRINTS.glob("*.yaml")}
+
+    assert set(root) == set(bundled), (
+        f"different files: root has {sorted(set(root) - set(bundled))}, "
+        f"bundle has {sorted(set(bundled) - set(root))}"
+    )
+    drifted = [name for name in root if root[name] != bundled[name]]
+    assert not drifted, f"copies have drifted apart: {drifted}"

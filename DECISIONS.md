@@ -142,3 +142,41 @@ README says so.
 
 **Lesson:** a joke in a second language still needs a sourcing note, or someone
 will quote it as authoritative.
+
+## 2026-08-22 — The blueprints ship inside the component and install themselves
+
+Home Assistant loads blueprints from `config/blueprints/<domain>/` and nowhere
+else — `blueprint/models.py` resolves the folder as
+`hass.config.path("blueprints", domain)` — and offers integrations no API to
+register one. That was read as "you cannot ship blueprints with an integration",
+and the first cut left them at the repo root with an import badge, i.e. a second
+manual step for a feature the card already gets for free.
+
+Wrong conclusion. `HA-Personal-Hydration-Manager` already solves this the way
+HACS does for blueprint repositories: bundle them in the component and copy them
+across at setup. `blueprints_install.py` does that here, off the event loop, and
+only when the shipped file is newer than the installed one, so a user's own edits
+are not thrown away on every restart.
+
+The root copy stays, because the README's import badges have to keep working for
+people who have not installed the integration. Two copies of the same file is a
+drift hazard, and it is not hypothetical — hydration's two copies already differ
+by three bytes, silently, so the file imported by URL is not quite the file that
+gets installed. A packaging test asserts they stay byte-identical here.
+
+**Lesson:** "Home Assistant can't do that" is a claim about a codebase that is
+readable, and about repos that are already on disk. Check one of them before
+declining.
+
+## 2026-08-22 — Every test gets its own config directory
+
+`pytest-homeassistant-custom-component` points every test at a single
+`testing_config/` inside site-packages. Installing blueprints for real writes
+into it, so the files outlive the run: a test that edited an installed blueprint
+made the test asserting the installed copy is pristine fail on the *second* run
+and never the first. An autouse fixture repoints `hass.config.config_dir` at the
+test's `tmp_path`.
+
+**Lesson:** the moment an integration writes to the config directory, the shared
+test config directory becomes state, and state that only bites on a rerun is the
+expensive kind.

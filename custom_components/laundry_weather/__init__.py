@@ -14,6 +14,7 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.event import async_call_later
 
+from .blueprints_install import async_install_blueprints
 from .const import (
     CARD_FILENAME,
     DOMAIN,
@@ -51,6 +52,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Laundry Weather from a config entry."""
     await _async_register_static_path(hass)
     hass.async_create_task(_async_ensure_lovelace_resource(hass))
+    # Same idea as the card: no second install step. Home Assistant only loads
+    # blueprints from config/blueprints, so they have to be copied across.
+    await async_install_blueprints(hass)
 
     coordinator = LaundryWeatherCoordinator(hass, entry)
     try:

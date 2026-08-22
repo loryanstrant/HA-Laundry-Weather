@@ -100,10 +100,23 @@ else degrades gracefully — see [what else is worth having](#what-else-is-worth
 The card only helps if you happen to be looking at it. Two blueprints turn the same signals
 into a notification — one for your phone, one spoken aloud.
 
+**They install themselves.** The integration copies them into
+`config/blueprints/automation/loryanstrant/` when it starts, so they are already waiting under
+**Settings → Automations & scenes → Blueprints**. Just pick one and press **Create automation**.
+
+<details>
+<summary>Not installed the integration yet? Import them by URL</summary>
+
 | | |
 |---|---|
 | **Push notification** | [![Open your Home Assistant instance and show the blueprint import dialog.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Floryanstrant%2FHA-Laundry-Weather%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Floryanstrant%2Flaundry_weather_bring_it_in_push.yaml) |
 | **Spoken announcement** | [![Open your Home Assistant instance and show the blueprint import dialog.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Floryanstrant%2FHA-Laundry-Weather%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Floryanstrant%2Flaundry_weather_bring_it_in_tts.yaml) |
+
+These are the same files, so an imported copy and an installed one live side by side rather
+than fighting. Edits you make to your own copy are kept: the integration only replaces a
+blueprint when the version it ships is newer than the one already there.
+
+</details>
 
 Both alert on four things, each of which you can turn off individually:
 
