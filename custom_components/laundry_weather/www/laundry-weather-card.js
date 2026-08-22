@@ -77,9 +77,17 @@ function _lwFormatters(hass) {
 
   var options = { hour: "2-digit", minute: "2-digit", timeZone: zone };
   if (hour12 !== undefined) { options.hour12 = hour12; }
+  // The chart axis gets its own, shorter format. A 12-hour "08:00 PM" is
+  // nearly twice the width of "20:00", and using the full format there
+  // collided the hour labels into an unreadable smear at 380px.
+  var axisOptions = { hour: "numeric", timeZone: zone };
+  if (hour12 !== undefined) { axisOptions.hour12 = hour12; }
+
   return {
     time: new Intl.DateTimeFormat(locale, options),
+    axis: new Intl.DateTimeFormat(locale, axisOptions),
     day: new Intl.DateTimeFormat(locale, { weekday: "short", timeZone: zone }),
+    hour12: hour12,
   };
 }
 
@@ -88,6 +96,14 @@ function _lwTime(iso, fmt) {
   var when = new Date(iso);
   if (isNaN(when.getTime())) { return ""; }
   return fmt.time.format(when);
+}
+
+/** Hour only, for the chart axis. */
+function _lwHour(iso, fmt) {
+  if (!iso) { return ""; }
+  var when = new Date(iso);
+  if (isNaN(when.getTime())) { return ""; }
+  return fmt.axis.format(when).replace(/\s+/g, "\u2009");
 }
 
 /** "— in 35 min" / "— in 2.3 h" / "— Sun 07:15" / "(already past)". */
@@ -420,7 +436,11 @@ class LaundryWeatherCard extends HTMLElement {
         'stroke-width="1.4" stroke-dasharray="1 2" opacity="0.55"/>');
     }
 
-    var every = Math.max(1, Math.round(n / 8));
+    // Twelve-hour labels ("8 PM") need more room than "20", so fewer of them
+    // fit across the same axis.
+    var fmt = this._fmt();
+    var maxTicks = fmt.hour12 === false ? 8 : 6;
+    var every = Math.max(1, Math.ceil(n / maxTicks));
     var points = function (key) {
       return series.map(function (h, i) { return x(i) + "," + y(h[key]); }).join(" ");
     };
@@ -472,14 +492,13 @@ class LaundryWeatherCard extends HTMLElement {
     out.push('<text x="' + (L + 3) + '" y="' + (T + 6) + '" font-size="8" ' +
       'fill="var(--secondary-text-color)">now</text>');
 
-    var fmt = this._fmt();
     series.forEach(function (h, i) {
       if (i % every) { return; }
       // Formatted from the timestamp rather than using the server's pre-baked
       // hhmm, so the axis and the timing rows can never disagree.
       out.push('<text x="' + x(i) + '" y="' + (H - 6) + '" font-size="8.5" ' +
         'text-anchor="middle" fill="var(--secondary-text-color)">' +
-        _lwEscape(_lwTime(h.ts, fmt) || h.hhmm) + "</text>");
+        _lwEscape(_lwHour(h.ts, fmt) || h.hhmm) + "</text>");
     });
 
     return '<svg viewBox="0 0 ' + W + " " + H + '" role="img" ' +
