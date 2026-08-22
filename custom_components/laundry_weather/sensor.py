@@ -167,6 +167,11 @@ class RecommendationSensor(LaundryWeatherEntity, SensorEntity):
             "cover_score": data.get("scores", {}).get("cover"),
             "sun_score": data.get("scores", {}).get("sun"),
             "good_drying_day": data.get("good_drying_day"),
+            # Is anything drying outside right now? False after sunset, in rain,
+            # or when the score is below the floor — which is when "bring in by"
+            # has no deadline to give. Worth automating on: "tell me when
+            # nothing is drying and the washing is still out".
+            "drying_now": data.get("drying_now"),
             "currently_raining": data.get("now", {}).get("wet"),
             "washing_out": data.get("washing_out"),
             "advice": data.get("advice"),

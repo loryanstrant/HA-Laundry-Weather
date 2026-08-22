@@ -267,6 +267,28 @@ class LaundryWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return dt_util.as_local(today)
         return dt_util.as_local(get_astral_event_next(self.hass, "sunset", now))
 
+    def _day_is_over(self, now: datetime) -> bool:
+        """Has today's sunset already passed?
+
+        `_sunset` deliberately rolls forward to the *next* sunset, which is
+        what "move it outside at" needs. Asking whether washing should still be
+        out needs the opposite question, and conflating the two is what let the
+        card offer a 52-minute grace period four hours after dark: the scan was
+        capped at tomorrow's sunset, so it happily searched overnight hours.
+        """
+        configured = self.settings.get(CONF_SUNSET)
+        if configured:
+            state = self._raw_state(configured)
+            if state is not None:
+                parsed = dt_util.parse_datetime(state.state)
+                if parsed is not None:
+                    return dt_util.as_local(parsed) <= now
+
+        today = get_astral_event_date(self.hass, "sunset", now)
+        if today is None:
+            return False
+        return dt_util.as_local(today) <= now
+
     def _smoothed_solar(self, raw: float | None, now: datetime) -> float | None:
         """Damp the noisiest input in the model.
 
@@ -506,6 +528,7 @@ class LaundryWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             dewpoint_now=dewpoint,
             washing_out=self.washing_out,
             tuning=self.tuning,
+            day_over=self._day_is_over(now),
         )
 
         return {
@@ -557,6 +580,7 @@ class LaundryWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "recommendation_band": assessment.recommendation_band,
             "good_drying_day": assessment.good_day,
             "advice": assessment.advice,
+            "drying_now": assessment.drying_now,
             "timings": {
                 "move_outside_at": assessment.move_at,
                 "bring_in_by": assessment.bring_by,

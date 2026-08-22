@@ -421,8 +421,9 @@ def bring_in_by(
     series: Sequence[ScoredHour],
     sunset: datetime,
     floor: float = DEFAULT_BRING_IN_FLOOR,
-) -> tuple[datetime, str]:
-    """When washing left outside should come in — always a real time.
+    drying_now: bool = True,
+) -> tuple[datetime, str | None]:
+    """When washing left outside should come in.
 
     Note the signature: this takes no ``move_outside_at``. In the reference
     implementation the two were coupled, so when going outside stopped being
@@ -430,9 +431,21 @@ def bring_in_by(
     mattered most, with washing already on the line. Keeping the parameter out
     of the signature is what stops that being rewritten by accident.
 
+    ``drying_now`` is the question this originally lacked: *is the drying day
+    still running at all?* Without it, asking at 10pm scanned forward, found
+    that 11pm was below the floor, and answered "bring it in by 11pm — in 52
+    minutes" — four hours after sunset, with the forecast showing 8 °C at 97%
+    humidity. A grace period where there was none.
+
+    When nothing is drying there is no deadline to give, so this says so rather
+    than inventing one. It still always returns a time, so callers that want
+    one have it; the reason is what tells them how to read it.
+
     Uses ``max(sun, cov)`` because the line is movable: as long as *either*
     position is still drying, there is a reason to leave it out.
     """
+    if not drying_now:
+        return sunset, "not_drying"
     for hour in series:
         if hour.ts > sunset:
             continue
@@ -557,6 +570,7 @@ def build_advice(
     window_text: str | None,
     dew: bool,
     washing_out: bool,
+    drying_now: bool = True,
     limit: int = ADVICE_LIMIT,
 ) -> str:
     """One plain-English sentence, band first and never over the state limit.
@@ -566,14 +580,26 @@ def build_advice(
     opening clause and the timing clause are never dropped.
     """
     band_lower = band_word.lower()
-    if washing_out:
+    if washing_out and drying_now:
         opening = f"Washing is out - bring in by {_hhmm(bring_by)}."
         comparison = f" {spot} is fastest now ({score:.1f}, {band_lower})."
+    elif washing_out:
+        # Nothing is drying, so there is no deadline to quote — saying "in by
+        # 23:00" four hours after sunset reads as a grace period that is not
+        # there.
+        opening = "Washing is out and nothing is drying outside now."
+        comparison = f" {spot} is the best of a bad lot ({score:.1f}, {band_lower})."
     else:
         opening = f"{spot} now ({score:.1f}, {band_lower})."
         comparison = f" Sun {sun:.1f} vs cover {cov:.1f}."
 
-    if move_at is not None:
+    if not drying_now:
+        timing = (
+            f" Nothing is drying outside; next worth it {_hhmm(move_at)}."
+            if move_at is not None
+            else " Nothing is drying outside just now."
+        )
+    elif move_at is not None:
         timing = f" Move out {_hhmm(move_at)}, in by {_hhmm(bring_by)}."
     elif not washing_out:
         timing = (
@@ -643,6 +669,7 @@ class Assessment:
     window: Window | None = None
     window_text: str | None = None
     dew: bool = False
+    drying_now: bool = True
     overnight_min: float = OVERNIGHT_DEFAULT_MIN
     series: list[ScoredHour] = field(default_factory=list)
     sun_model: str = FORECAST_MODEL_UV
@@ -706,8 +733,14 @@ def assess(
     dewpoint_now: float | None,
     washing_out: bool,
     tuning: Tuning,
+    day_over: bool = False,
 ) -> Assessment:
-    """Turn one set of readings into every answer the entities need."""
+    """Turn one set of readings into every answer the entities need.
+
+    ``day_over`` says today's sunset has already gone. Combined with the
+    outdoor scores it decides whether there is a drying day left to give a
+    deadline for — see `bring_in_by`.
+    """
     cover = covered_score(vpd_out, wn)
     sun = open_line_score(vpd_out, wn, sun_factor, wet)
 
@@ -716,8 +749,18 @@ def assess(
     )
     best_indoor = rooms[best_room] if best_room else 0.0
 
+    # Is anything actually drying outside right now? Rain, a score below the
+    # floor, or the sun already down all mean no.
+    drying_now = (
+        not wet
+        and not day_over
+        and max(sun, cover) >= tuning.bring_in_floor
+    )
+
     move_at = move_outside_at(series, best_indoor, sunset, tuning.margin)
-    bring_by, bring_by_source = bring_in_by(series, sunset, tuning.bring_in_floor)
+    bring_by, bring_by_source = bring_in_by(
+        series, sunset, tuning.bring_in_floor, drying_now
+    )
     window = best_window(series)
     window_text = format_window(window)
     dew, overnight_min = overnight_rewet(series, now, dewpoint_now)
@@ -746,6 +789,7 @@ def assess(
             window_text=window_text,
             dew=dew,
             washing_out=washing_out,
+            drying_now=drying_now,
         ),
         move_at=move_at,
         bring_by=bring_by,
@@ -753,6 +797,7 @@ def assess(
         window=window,
         window_text=window_text,
         dew=dew,
+        drying_now=drying_now,
         overnight_min=overnight_min,
         series=list(series),
         sun_model=sun_model,
