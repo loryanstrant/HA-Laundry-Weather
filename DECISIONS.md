@@ -48,6 +48,33 @@ with an opt-out tick-box for people who already point at an averaged sensor.
 **Lesson:** if the working configuration needs a helper built by hand first,
 absorb the helper into the thing being configured.
 
+## 2026-08-22 — Every spot is scored with the same formula
+
+The reference implementation read the weather station's own
+`vapour_pressure_deficit` sensor for the outdoor spots, while computing indoor
+rooms from temperature and humidity with the Magnus formula. Two sources for
+the same quantity.
+
+This integration computes all of them the same way, from temperature and
+humidity. Two reasons: most weather stations expose no VPD sensor at all, so
+the station-sensor path would be a second code path serving a minority; and the
+entire point of the card is ranking a room against a line, which is only
+meaningful if both numbers came out of the same formula.
+
+Measured cost: the station's firmware disagrees with Magnus by **0.0085 hPa**
+(0.17%). That lands on the second decimal place of a score and is two orders of
+magnitude below the width of a drying band, so it cannot change an answer. The
+parity tests assert against production with that tolerance stated explicitly
+rather than asserting a match that does not exist.
+
+Worth recording separately: the design session reported the formula reproducing
+the station "exactly (3.42 vs 3.42)". Measured against full precision it is
+0.0085 hPa out — the exact match was rounding to two decimals. The conclusion
+survives; the wording did not.
+
+**Lesson:** "reproduces it exactly" measured at display precision is a
+statement about the display. Check the residual before writing it down.
+
 ## 2026-08-22 — One tunable moves both sun scales (D4)
 
 The reference implementation used two different sun factors: live

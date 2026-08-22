@@ -1,0 +1,59 @@
+{
+  "_comment": [
+    "A single simultaneous snapshot of the reference implementation running in",
+    "production: every input it read, and every answer it produced from them.",
+    "Captured 2026-08-22 16:52 AEST, read-only.",
+    "",
+    "This is what makes 'faithful port' a claim pytest can check. If the ported",
+    "model ever stops reproducing these outputs from these inputs, something",
+    "changed that nobody meant to change.",
+    "",
+    "Timings and the best window are not replayed here: they are derived from a",
+    "48-hour forecast that was not captured alongside the readings, and a",
+    "reconstructed forecast would only be testing itself."
+  ],
+  "captured_at": "2026-08-22T16:52:00+10:00",
+  "timezone": "Australia/Melbourne",
+  "inputs": {
+    "outdoor_temperature": 13.1,
+    "outdoor_humidity": 66.0,
+    "outdoor_vpd_station": 5.11344684691491,
+    "dewpoint": 6.9,
+    "wind_speed_kmh": 0.4,
+    "solar_radiation_raw": 29.77,
+    "solar_radiation_30m_mean": 47.0,
+    "sun_elevation": 8.5,
+    "rain_detector": "No",
+    "rain_dry_state": "No",
+    "rain_rate": 0.0,
+    "sunset": "2026-08-22T17:51:22+10:00",
+    "washing_on_the_line": false,
+    "rooms": [
+      { "name": "Sunroom", "temperature": 19.8, "humidity": 64.3 },
+      { "name": "Laundry", "temperature": 17.6, "humidity": 57.5 }
+    ]
+  },
+  "reference_outputs": {
+    "_comment": [
+      "The reference implementation scored only the sunroom. The laundry room",
+      "is included in inputs because it is viable at the same time (it scores",
+      "8.55 here, above the sunroom's 8.24) — which is precisely the gap this",
+      "integration exists to close, so its expected score is asserted",
+      "separately rather than being claimed as reference parity."
+    ],
+    "drying_score_sunroom": 8.24,
+    "drying_score_covered_line": 2.86,
+    "drying_score_line_in_sun": 4.15,
+    "drying_recommendation": "Sunroom",
+    "drying_advice": "Sunroom now (8.2, moderate). Sun 4.2 vs cover 2.9. Outside will not beat inside today; if it is out, in by 17:51. Best Sun 11:00-16:00 (peak 16.2). Dew overnight.",
+    "overnight_rewet": true,
+    "best_window_text": "Sun 11:00-16:00 (peak 16.2)",
+    "bring_in_by": "2026-08-22T17:51:22+10:00",
+    "move_outside_at": null
+  },
+  "expected_new_outputs": {
+    "_comment": "What this integration should produce that the reference could not.",
+    "drying_score_laundry": 8.55,
+    "recommendation_with_both_rooms": "Laundry"
+  }
+}

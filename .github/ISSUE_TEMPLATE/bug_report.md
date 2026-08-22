@@ -1,20 +1,30 @@
 ---
 name: Bug report
-about: Create a report to help us improve
+about: Something isn't working
 title: "[BUG] "
 labels: bug
 assignees: ''
 
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+**What happened**
+A clear description of what went wrong, and what you expected instead.
 
-**Component**
-Which component(s) are you having the issue with?
+**Where**
+Which part — the integration's sensors, the config flow, or the card?
+
+**Your setup**
+- Home Assistant version:
+- Laundry Weather version:
+- Weather integration providing the hourly forecast (BOM / Met.no / OpenWeatherMap / other):
+- Weather station or sensors feeding it (if any):
 
 **Screenshots**
-If applicable, add screenshots to help explain your problem.
+If it's a card or layout problem, a screenshot is worth far more than a
+description — including the width of the screen you saw it on.
+
+**Logs**
+Anything mentioning `laundry_weather` from Settings → System → Logs.
 
 **Additional context**
-Add any other context about the problem here.
+Anything else worth knowing.
