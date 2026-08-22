@@ -245,8 +245,19 @@ def erase_lettering(
     return repainted, (bx0, by0, bx1, by1)
 
 
-def pick_font(size: int) -> ImageFont.FreeTypeFont:
+#: Optional pIqaD (Klingon script) face, used only when `--piqad` is passed.
+#: Not committed: it is licensed for personal use, which does not cover
+#: redistributing it to everyone who installs this. Only the rendered pixels
+#: ship, which is what this whole script already does.
+PIQAD_FONT = Path("/tmp/klingonfont/klingon.ttf")
+
+
+def pick_font(size: int, piqad: bool = False) -> ImageFont.FreeTypeFont:
     """A bold italic face, falling back through what containers usually ship."""
+    if piqad:
+        if not PIQAD_FONT.exists():
+            raise SystemExit(f"--piqad given but no font at {PIQAD_FONT}")
+        return ImageFont.truetype(str(PIQAD_FONT), size)
     candidates = [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-BoldOblique.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSans-BoldItalic.ttf",
@@ -263,7 +274,8 @@ def pick_font(size: int) -> ImageFont.FreeTypeFont:
 
 
 def draw_klingon(image: Image.Image, box: tuple[int, int, int, int],
-                 text: str, ink: tuple[int, int, int, int]) -> None:
+                 text: str, ink: tuple[int, int, int, int],
+                 piqad: bool = False) -> None:
     """Centre the Klingon in the bubble, scaled to fit its flat middle."""
     x0, y0, x1, y1 = box
     # The star's points eat into the edges, so only the middle is safe to
@@ -277,7 +289,7 @@ def draw_klingon(image: Image.Image, box: tuple[int, int, int, int],
     draw = ImageDraw.Draw(image)
     size = int(max_height / 2)
     while size > 6:
-        font = pick_font(size)
+        font = pick_font(size, piqad)
         bounds = draw.multiline_textbbox(
             (0, 0), text, font=font, spacing=size * 0.18, align="center"
         )
@@ -310,6 +322,9 @@ def save(image: Image.Image, path: Path) -> int:
     return path.stat().st_size
 
 
+PIQAD = "--piqad" in sys.argv
+
+
 def main() -> int:
     WWW.mkdir(parents=True, exist_ok=True)
     for sticker in STICKERS:
@@ -329,7 +344,7 @@ def main() -> int:
         # Dark ink on the yellow bubble, light on the red — matching whatever
         # the original lettering did.
         ink = (26, 20, 12, 255) if sum(fill[:3]) > 380 else (255, 255, 255, 255)
-        draw_klingon(klingon, bubble, sticker.klingon, ink)
+        draw_klingon(klingon, bubble, sticker.klingon, ink, piqad=PIQAD)
 
         size = save(klingon, WWW / f"{sticker.stem}-klingon.png")
         print(

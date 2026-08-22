@@ -367,6 +367,12 @@ jajvam* — "today is a good day to die".
 not been checked by the Klingon Language Institute or anyone else qualified. Please do not
 quote them as authoritative Klingon.
 
+The bundled Klingon banners render them in **pIqaD**, the Klingon script. One caveat worth
+being straight about: the face used maps upper and lower case to the same glyph, and Klingon
+orthography treats `Q`/`q`, `D`/`d`, `H`/`h`, `I`/`i` and `S`/`s` as *different letters* — the
+very letters `QaDmoHlu'meH` depends on. So the script is decoratively right and
+orthographically approximate. It looks the part; do not use it to learn pIqaD.
+
 It is a string swap, not translation. Entity states stay in English whatever you set, so
 nothing you have automated breaks when you flip it.
 
