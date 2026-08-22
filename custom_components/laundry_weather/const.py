@@ -73,6 +73,10 @@ UPDATE_INTERVAL_SECONDS: Final = 120
 # weather.get_forecasts is the only call that costs anything, and providers
 # rarely refresh faster than hourly.
 FORECAST_INTERVAL_SECONDS: Final = 900
+# How soon to try again when the forecast could not be read at all. Short,
+# because this is almost always a weather integration that had not finished
+# starting yet.
+FORECAST_RETRY_SECONDS: Final = 20
 # Time constant for the internal solar smoothing EMA. Raw irradiance was
 # observed swinging 528 -> 564 -> 426 -> 150 W/m2 inside one afternoon.
 SOLAR_SMOOTHING_TAU_SECONDS: Final = 600

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import math
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime, timedelta
 from typing import Any
@@ -35,6 +36,7 @@ from homeassistant.const import (
     UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.sun import get_astral_event_date, get_astral_event_next
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
@@ -71,6 +73,7 @@ from .const import (
     DEFAULT_RAIN_DRY_STATE,
     DOMAIN,
     FORECAST_INTERVAL_SECONDS,
+    FORECAST_RETRY_SECONDS,
     SOLAR_SMOOTHING_TAU_SECONDS,
     UPDATE_INTERVAL_SECONDS,
 )
@@ -117,6 +120,7 @@ class LaundryWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._forecast_stale = False
         self._washing_out = False
         self._missing: list[str] = []
+        self._retry_unsub: Callable[[], None] | None = None
 
     # --- configuration -----------------------------------------------------
 
@@ -303,9 +307,16 @@ class LaundryWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if stamp is None:
             return None
         parsed = dt_util.parse_datetime(stamp) if isinstance(stamp, str) else stamp
-        if parsed is None or parsed.tzinfo is None:
-            # A naive timestamp would be silently misread by hours.
+        if parsed is None:
             return None
+        if parsed.tzinfo is None:
+            # Not every provider stamps an offset — the Bureau of Meteorology
+            # returns bare local times like "2026-08-22T17:00:00". Home
+            # Assistant's own convention is that a naive datetime is local, so
+            # it is read that way here. Rejecting them instead dropped every
+            # hour of a BOM forecast on the floor and left the timings blank,
+            # which is how this was found.
+            parsed = parsed.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
 
         def pick(*keys: str) -> float | None:
             for key in keys:
@@ -363,6 +374,7 @@ class LaundryWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 weather_entity,
                 err,
             )
+            self._schedule_retry()
             return self._forecast_cache
 
         entries = (response or {}).get(weather_entity, {}).get("forecast", [])
@@ -370,12 +382,40 @@ class LaundryWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not hours:
             self._forecast_stale = bool(self._forecast_cache)
             self._missing.append(f"{weather_entity} (hourly forecast)")
+            self._schedule_retry()
             return self._forecast_cache
 
         self._forecast_cache = hours
         self._forecast_fetched_at = now
         self._forecast_stale = False
         return hours
+
+    def _schedule_retry(self) -> None:
+        """Try again shortly when there is no forecast to fall back on.
+
+        Weather integrations often finish starting a moment after this one, and
+        `weather.get_forecasts` refuses an entity its service layer has not
+        registered yet — measured at half a second late against a real Bureau
+        of Meteorology feed. Waiting for the ordinary two-minute poll leaves
+        every timing line blank for two minutes after each restart.
+
+        Watching the entity's state does not help: the state object appears
+        before the service will accept the entity, so the state is already
+        there when this entry is set up and the wait ends too early. Retrying
+        on a short timer needs no such assumption.
+        """
+        if self._forecast_cache or self._retry_unsub is not None:
+            return
+
+        async def _retry(_now) -> None:
+            self._retry_unsub = None
+            # Undebounced: async_request_refresh has a ten-second cooldown that
+            # would swallow this.
+            await self.async_refresh()
+
+        self._retry_unsub = async_call_later(
+            self.hass, FORECAST_RETRY_SECONDS, _retry
+        )
 
     # --- the refresh -------------------------------------------------------
 

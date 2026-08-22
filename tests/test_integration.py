@@ -377,6 +377,53 @@ async def test_a_provider_without_uv_still_gets_a_sun_model(
     assert coordinator.data["forecast_meta"]["count"] > 0
 
 
+async def test_a_provider_with_naive_timestamps_still_produces_a_forecast(
+    hass: HomeAssistant,
+) -> None:
+    """The Bureau of Meteorology returns bare local times, with no offset.
+
+    Every synthetic fixture in this suite builds its timestamps with
+    `.isoformat()` on a tz-aware datetime, so they all carry an offset and this
+    went unnoticed until the integration was run against a real BOM feed on
+    DEV: all 73 forecast hours were rejected and the timing lines came back
+    empty. Home Assistant's own convention is that a naive datetime is local.
+    """
+    await async_setup_component(hass, "homeassistant", {})
+    seed_states(hass)
+    start = dt_util.now().replace(minute=0, second=0, microsecond=0)
+    bom = [
+        {
+            # Exactly the shape the Bureau returns — note the missing offset.
+            "datetime": (start + timedelta(hours=n)).strftime("%Y-%m-%dT%H:%M:%S"),
+            "condition": "cloudy",
+            "temperature": 18.0,
+            "humidity": 55.0,
+            "wind_speed": 11.0,
+            "wind_gust_speed": 20.0,
+            "uv_index": 3.0,
+            "precipitation_probability": 10.0,
+            "precipitation": 0.0,
+        }
+        for n in range(1, 25)
+    ]
+    await register_forecast(hass, bom)
+    entry = MockConfigEntry(
+        domain=DOMAIN, title="LW", data=ENTRY_DATA, options={CONF_ROOMS: ROOMS}
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+    assert coordinator.data["forecast_meta"]["count"] > 0, (
+        "naive timestamps were dropped — the whole forecast is gone"
+    )
+    assert not coordinator.data["diagnostics"]["missing"]
+    # And they must land on the right hour, not be shifted by the UTC offset.
+    first = coordinator.data["forecast"][0]
+    assert first["hhmm"] == (start + timedelta(hours=1)).strftime("%H:%M")
+
+
 async def test_unload(hass: HomeAssistant, loaded_entry: MockConfigEntry) -> None:
     assert await hass.config_entries.async_unload(loaded_entry.entry_id)
     await hass.async_block_till_done()
