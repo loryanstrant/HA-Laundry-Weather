@@ -1,10 +1,18 @@
 {
   "domain": "laundry_weather",
   "name": "Laundry Weather",
-  "codeowners": ["@loryanstrant"],
+  "codeowners": [
+    "@loryanstrant"
+  ],
   "config_flow": true,
-  "dependencies": ["http", "lovelace", "sun"],
-  "after_dependencies": ["weather"],
+  "dependencies": [
+    "http",
+    "lovelace",
+    "sun"
+  ],
+  "after_dependencies": [
+    "weather"
+  ],
   "documentation": "https://github.com/loryanstrant/HA-Laundry-Weather",
   "integration_type": "service",
   "iot_class": "calculated",
