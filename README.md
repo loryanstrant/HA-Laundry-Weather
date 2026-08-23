@@ -400,7 +400,12 @@ entity: sensor.laundry_weather_recommendation
 
 That is the whole minimum configuration — everything else is read from that one entity's
 attributes, which means the card survives you renaming or adding a room. There is a visual
-editor, so you never have to write this by hand.
+editor, so you never have to write this by hand:
+
+![The card's visual editor: a sensor picker, toggles for each section, clock format, forecast length and the Klingon setting](docs/images/card-editor.png)
+
+It is built from Home Assistant's own form controls, so it looks and behaves like every other
+card editor — and the sensor is chosen by name rather than by entity ID.
 
 | Option | Default | What it does |
 |---|---|---|
