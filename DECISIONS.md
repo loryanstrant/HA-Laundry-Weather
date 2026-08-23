@@ -180,3 +180,73 @@ test's `tmp_path`.
 **Lesson:** the moment an integration writes to the config directory, the shared
 test config directory becomes state, and state that only bites on a rerun is the
 expensive kind.
+
+## 2026-08-23 — The headline judges the day, not the minute
+
+`good_drying_day()` read only the live scores while its own docstring said
+"Is today worth putting a load out at all?". On prod at 10:06 — 13.8 C, 65% RH,
+**wind 0.0 km/h** — the exposed line scored 5.56 against a 6.0 cut, so the card
+said "It Is Not a Good Day to Dry" directly above "Move outside 12:00 PM" and a
+best window of 11:00-16:00 peaking at 16.6. Both statements came from the same
+payload. On any cold still morning the verdict was "no" regardless of the
+afternoon.
+
+It now takes the best score still to come before tonight's sunset. Two traps
+had to be avoided. `best_window` searches the whole 48-hour horizon and is
+regularly *tomorrow*, so its peak could not be used directly. And the `sunset`
+handed to `assess` rolls forward to the *next* sunset once today's has gone —
+the same thing that produced the "bring in by, in 52 minutes" bug — so
+`rest_of_today_peak` takes `day_over` for exactly the reason `bring_in_by` takes
+`drying_now`.
+
+The live scores stay in the comparison as a floor, so a thin forecast cannot
+argue with an afternoon that is demonstrably drying.
+
+**Lesson:** when a function's docstring and its arithmetic disagree about what
+question is being answered, the docstring is usually the requirement and the
+arithmetic is the bug.
+
+## 2026-08-23 — The card renders its own clock times
+
+Whether a time reads 17:54 or 5:54 PM is `hass.locale.time_format` — a per-user
+*frontend* setting that never reaches Python. So the advice sentence and the
+best-window text, both composed server-side with `strftime("%H:%M")`, were
+stuck at 24-hour on a 12-hour dashboard, sitting directly beneath timing rows
+the card had formatted correctly as "12:00 PM".
+
+The wording still lives in one place. `build_advice_template()` emits the same
+sentence with `{move_at}`, `{bring_by}` and `{window}` left open, and the card
+fills them. Which clauses survive truncation is decided from the *real*
+sentence, because placeholders are longer than clock times and letting each
+version decide separately would let the card drop a clause the entity kept.
+
+The entity state is unchanged, so notifications, TTS and both blueprints are
+untouched.
+
+**Lesson:** anything a person reads on a dashboard has to be formatted where
+that person's preferences are known. The backend is not that place.
+
+## 2026-08-23 — The card editor stopped rebuilding itself
+
+The clock-format dropdown flashed open and shut. `set hass` called `_render()`,
+which assigned `shadowRoot.innerHTML` wholesale, and Home Assistant assigns
+`hass` on every state change — so the `<select>` the user had just opened was
+destroyed and rebuilt underneath the popup several times a second. `_emit()`
+re-rendered too, *and* Home Assistant echoes the change back through
+`setConfig`, so one edit rendered twice.
+
+Not dropdown-specific: the entity picker had it too, and the text fields were
+silently losing focus and caret position mid-typing.
+
+The card already had the answer — it diffs its data before re-rendering, with a
+comment explaining that re-rendering loses focus. The editor now does the same,
+keyed on the config plus the candidate entity list.
+
+Verified by node identity rather than by eye: create the editor element
+directly, assign `hass` twenty times, and check the `<select>` is the same node
+object. 0.3.0 fails it, 0.3.1 passes. That also sidesteps the config dialog,
+which never attaches in a headless browser and defeated five earlier attempts
+at screenshotting the editor.
+
+**Lesson:** when a UI bug is "it disappears", test for object identity, not for
+appearance — it is cheap, headless, and it fails loudly on the old code.

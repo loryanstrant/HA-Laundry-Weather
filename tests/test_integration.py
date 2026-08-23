@@ -9,6 +9,7 @@ the card's attribute payload is actually there.
 from __future__ import annotations
 
 import json
+import re
 from datetime import timedelta
 from pathlib import Path
 
@@ -628,3 +629,53 @@ async def test_an_unwritable_blueprint_folder_does_not_break_setup(
         await async_install_blueprints(hass)
 
     assert "could not install blueprint" in caplog.text
+
+
+async def test_the_card_gets_an_advice_template_it_can_reformat(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+) -> None:
+    """The sentence reaches the card with its times still substitutable.
+
+    12h-vs-24h is `hass.locale.time_format`, a per-user frontend setting that
+    never reaches Python, so the backend physically cannot render this sentence
+    correctly for a 12-hour dashboard. It ships the wording; the card fills in
+    the clock.
+    """
+    attrs = hass.states.get("sensor.laundry_weather_recommendation").attributes
+
+    template = attrs["advice_template"]
+    assert "{bring_by}" in template
+    assert not re.search(r"\d{1,2}:\d{2}", template), (
+        f"a real clock time survived into the template: {template}"
+    )
+
+    # And it still says the same thing as the entity everything else reads.
+    timings = attrs["timings"]
+    filled = (
+        template.replace("{bring_by}", timings["bring_in_by"][11:16])
+        .replace("{move_at}", (timings["move_outside_at"] or "")[11:16])
+        .replace("{window}", (timings["best_window"] or {}).get("text", ""))
+    )
+    assert filled == attrs["advice"]
+
+
+async def test_the_headline_is_about_the_day_not_the_minute(
+    hass: HomeAssistant, loaded_entry: MockConfigEntry
+) -> None:
+    """A cold still morning with a good afternoon is a good day to dry.
+
+    The production snapshot these tests run on is exactly that shape, and it
+    reported "not a good day" while telling the user to move the washing out at
+    noon.
+    """
+    attrs = hass.states.get("sensor.laundry_weather_recommendation").attributes
+    peak = attrs["timings"]["best_window"]["peak"]
+    sun = attrs["sun_score"]
+    cover = attrs["cover_score"]
+
+    # The shape that made this wrong: neither outdoor spot is anywhere near the
+    # Moderate band right now, and the day still peaks well past it.
+    assert max(sun, cover) < 6.0, "fixture no longer reproduces the bug"
+    assert peak >= 6.0, "fixture no longer has a good day in it"
+
+    assert hass.states.get("binary_sensor.laundry_weather_good_drying_day").state == "on"

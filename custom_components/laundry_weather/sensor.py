@@ -35,6 +35,7 @@ UNRECORDED = frozenset(
         "config",
         "diagnostics",
         "advice",
+        "advice_template",
     }
 )
 
@@ -175,6 +176,9 @@ class RecommendationSensor(LaundryWeatherEntity, SensorEntity):
             "currently_raining": data.get("now", {}).get("wet"),
             "washing_out": data.get("washing_out"),
             "advice": data.get("advice"),
+            # The card re-renders this one with the viewer's own clock
+            # format; the state above keeps 24h for notifications and TTS.
+            "advice_template": data.get("advice_template"),
             "spots": data.get("spots"),
             "rooms": data.get("rooms"),
             "forecast": data.get("forecast"),

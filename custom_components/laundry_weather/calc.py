@@ -537,18 +537,61 @@ def overnight_rewet(
     return dewpoint_now > lowest, lowest
 
 
+def rest_of_today_peak(
+    series: Sequence[ScoredHour], sunset: datetime, day_over: bool = False
+) -> float:
+    """Best outdoor score still to come before tonight's sunset.
+
+    Bounded at sunset on purpose. `best_window` searches the whole 48-hour
+    horizon and is regularly *tomorrow*, so its peak answers a different
+    question and using it here would report a glorious Sunday at nine o'clock
+    on Saturday night.
+
+    ``day_over`` is not optional in practice, for the same reason `bring_in_by`
+    needs `drying_now`: once today's sunset has gone, the `sunset` argument is
+    *tomorrow's*, so the bound silently stops bounding and the scan runs
+    straight through tomorrow. There is no drying left in a day that is over,
+    so the answer is zero.
+
+    Wet hours are skipped rather than scored. The covered line is deliberately
+    not zeroed by rain elsewhere — that is what a roof is for — but "is today a
+    good day to dry" is a question about the outdoors, and a drizzly day with a
+    serviceable veranda is not one.
+    """
+    if day_over:
+        return 0.0
+    scores = [
+        max(hour.sun, hour.cov)
+        for hour in series
+        if hour.ts <= sunset and not hour.wet
+    ]
+    return max(scores) if scores else 0.0
+
+
 def good_drying_day(
-    sun: float, cov: float, wet: bool, bands: Sequence[float] = DEFAULT_BANDS
+    sun: float,
+    cov: float,
+    wet: bool,
+    bands: Sequence[float] = DEFAULT_BANDS,
+    today_peak: float = 0.0,
 ) -> bool:
     """Is today worth putting a load out at all?
 
-    Deliberately about the *outdoors*, not the best spot overall: a rainy day
-    with an excellent sunroom is not a good day to dry, and saying it was
+    About the whole day, not this instant. Reading only the live scores made
+    this answer "no" on any cold still morning with a fine afternoon behind it
+    — and it did, on a 13.8 C sunny morning whose own forecast peaked at 16.6
+    by lunchtime, while the very same card said "move outside at 12:00".
+
+    The live scores stay in the comparison as a floor, so a day that is already
+    good right now cannot be talked out of it by a thin forecast.
+
+    Still deliberately about the *outdoors*, not the best spot overall: a rainy
+    day with an excellent sunroom is not a good day to dry, and saying it was
     would read as nonsense over a photo of rain.
     """
     if wet:
         return False
-    return max(sun, cov) >= bands[1]
+    return max(sun, cov, today_peak) >= bands[1]
 
 
 # --- advice ----------------------------------------------------------------
@@ -556,6 +599,91 @@ def good_drying_day(
 
 def _hhmm(value: datetime | None) -> str:
     return "" if value is None else value.strftime("%H:%M")
+
+
+ADVICE_ORDER = ("opening", "comparison", "timing", "window", "dew")
+#: Least useful first: the reader can live without the dew note long before
+#: they can live without knowing when to bring it in.
+ADVICE_DROPPABLE = ("dew", "window", "comparison")
+
+
+def _advice_clauses(
+    *,
+    spot: str,
+    score: float,
+    band_word: str,
+    sun: float,
+    cov: float,
+    move_at: datetime | None,
+    window_text: str | None,
+    dew: bool,
+    washing_out: bool,
+    drying_now: bool,
+    move_s: str,
+    bring_s: str,
+) -> dict[str, str]:
+    """The sentence in pieces, with the times already rendered.
+
+    Times arrive as strings rather than being formatted here so the same
+    wording can be produced twice — once with real clock times for the entity
+    state, once with placeholders for the card to fill in. See
+    `build_advice_template`.
+    """
+    band_lower = band_word.lower()
+    if washing_out and drying_now:
+        opening = f"Washing is out - bring in by {bring_s}."
+        comparison = f" {spot} is fastest now ({score:.1f}, {band_lower})."
+    elif washing_out:
+        # Nothing is drying, so there is no deadline to quote — saying "in by
+        # 23:00" four hours after sunset reads as a grace period that is not
+        # there.
+        opening = "Washing is out and nothing is drying outside now."
+        comparison = f" {spot} is the best of a bad lot ({score:.1f}, {band_lower})."
+    else:
+        opening = f"{spot} now ({score:.1f}, {band_lower})."
+        comparison = f" Sun {sun:.1f} vs cover {cov:.1f}."
+
+    if not drying_now:
+        timing = (
+            f" Nothing is drying outside; next worth it {move_s}."
+            if move_at is not None
+            else " Nothing is drying outside just now."
+        )
+    elif move_at is not None:
+        timing = f" Move out {move_s}, in by {bring_s}."
+    elif not washing_out:
+        timing = (
+            " Outside will not beat inside today; if it is out, in by "
+            f"{bring_s}."
+        )
+    else:
+        timing = ""
+
+    return {
+        "opening": opening,
+        "comparison": comparison,
+        "timing": timing,
+        "window": f" Best {window_text}." if window_text else "",
+        "dew": " Dew overnight." if dew else "",
+    }
+
+
+def _fit_advice(clauses: Mapping[str, str], limit: int) -> tuple[str, set[str]]:
+    """Join the clauses, dropping the least useful until it fits.
+
+    Returns the text and which clauses survived, so the placeholder version can
+    be built from the same decision rather than making its own — placeholders
+    are longer than clock times, and letting each version decide separately
+    would let the card show a different set of clauses from the entity state.
+    """
+    included = set(ADVICE_ORDER)
+    text = "".join(clauses[key] for key in ADVICE_ORDER)
+    for key in ADVICE_DROPPABLE:
+        if len(text) <= limit:
+            break
+        included.discard(key)
+        text = "".join(clauses[k] for k in ADVICE_ORDER if k in included)
+    return text[:limit], included
 
 
 def build_advice(
@@ -579,56 +707,76 @@ def build_advice(
     truncation never lands mid-word or costs the reader the answer. The
     opening clause and the timing clause are never dropped.
     """
-    band_lower = band_word.lower()
-    if washing_out and drying_now:
-        opening = f"Washing is out - bring in by {_hhmm(bring_by)}."
-        comparison = f" {spot} is fastest now ({score:.1f}, {band_lower})."
-    elif washing_out:
-        # Nothing is drying, so there is no deadline to quote — saying "in by
-        # 23:00" four hours after sunset reads as a grace period that is not
-        # there.
-        opening = "Washing is out and nothing is drying outside now."
-        comparison = f" {spot} is the best of a bad lot ({score:.1f}, {band_lower})."
-    else:
-        opening = f"{spot} now ({score:.1f}, {band_lower})."
-        comparison = f" Sun {sun:.1f} vs cover {cov:.1f}."
+    text, _ = _fit_advice(
+        _advice_clauses(
+            spot=spot,
+            score=score,
+            band_word=band_word,
+            sun=sun,
+            cov=cov,
+            move_at=move_at,
+            window_text=window_text,
+            dew=dew,
+            washing_out=washing_out,
+            drying_now=drying_now,
+            move_s=_hhmm(move_at),
+            bring_s=_hhmm(bring_by),
+        ),
+        limit,
+    )
+    return text
 
-    if not drying_now:
-        timing = (
-            f" Nothing is drying outside; next worth it {_hhmm(move_at)}."
-            if move_at is not None
-            else " Nothing is drying outside just now."
-        )
-    elif move_at is not None:
-        timing = f" Move out {_hhmm(move_at)}, in by {_hhmm(bring_by)}."
-    elif not washing_out:
-        timing = (
-            " Outside will not beat inside today; if it is out, in by "
-            f"{_hhmm(bring_by)}."
-        )
-    else:
-        timing = ""
 
-    clauses = {
-        "opening": opening,
-        "comparison": comparison,
-        "timing": timing,
-        "window": f" Best {window_text}." if window_text else "",
-        "dew": " Dew overnight." if dew else "",
+def build_advice_template(
+    *,
+    spot: str,
+    score: float,
+    band_word: str,
+    sun: float,
+    cov: float,
+    move_at: datetime | None,
+    bring_by: datetime,
+    window_text: str | None,
+    dew: bool,
+    washing_out: bool,
+    drying_now: bool = True,
+    limit: int = ADVICE_LIMIT,
+) -> str:
+    """The same sentence with ``{move_at}``, ``{bring_by}`` and ``{window}``.
+
+    Whether a clock reads 14:30 or 2:30 PM is `hass.locale.time_format` — a
+    per-user *frontend* setting that never reaches Python. So the backend
+    cannot render this sentence correctly for a 12-hour user, and the card has
+    to fill the times in itself. The wording still lives here, once.
+    """
+    common = {
+        "spot": spot,
+        "score": score,
+        "band_word": band_word,
+        "sun": sun,
+        "cov": cov,
+        "move_at": move_at,
+        "dew": dew,
+        "washing_out": washing_out,
+        "drying_now": drying_now,
     }
-    order = ["opening", "comparison", "timing", "window", "dew"]
-    # Least useful first: the reader can live without the dew note long before
-    # they can live without knowing when to bring it in.
-    droppable = ["dew", "window", "comparison"]
-
-    included = set(order)
-    text = "".join(clauses[key] for key in order)
-    for key in droppable:
-        if len(text) <= limit:
-            break
-        included.discard(key)
-        text = "".join(clauses[k] for k in order if k in included)
-    return text[:limit]
+    # Which clauses fit is decided by the real sentence, not this one.
+    _, included = _fit_advice(
+        _advice_clauses(
+            window_text=window_text,
+            move_s=_hhmm(move_at),
+            bring_s=_hhmm(bring_by),
+            **common,
+        ),
+        limit,
+    )
+    tokens = _advice_clauses(
+        window_text="{window}" if window_text else None,
+        move_s="{move_at}",
+        bring_s="{bring_by}",
+        **common,
+    )
+    return "".join(tokens[k] for k in ADVICE_ORDER if k in included)
 
 
 # --- top-level assembly ----------------------------------------------------
@@ -663,6 +811,9 @@ class Assessment:
     recommendation_band: str = BAND_NAMES[0]
     good_day: bool = False
     advice: str = ""
+    #: The same sentence with {move_at}/{bring_by}/{window} left for the
+    #: card to fill in — 12h vs 24h is a frontend setting Python cannot see.
+    advice_template: str = ""
     move_at: datetime | None = None
     bring_by: datetime | None = None
     bring_by_source: str = "sunset"
@@ -777,8 +928,27 @@ def assess(
         recommendation=recommendation,
         recommendation_score=score,
         recommendation_band=band_word,
-        good_day=good_drying_day(sun, cover, wet, tuning.bands),
+        good_day=good_drying_day(
+            sun,
+            cover,
+            wet,
+            tuning.bands,
+            rest_of_today_peak(series, sunset, day_over),
+        ),
         advice=build_advice(
+            spot=recommendation,
+            score=score,
+            band_word=band_word,
+            sun=sun,
+            cov=cover,
+            move_at=move_at,
+            bring_by=bring_by,
+            window_text=window_text,
+            dew=dew,
+            washing_out=washing_out,
+            drying_now=drying_now,
+        ),
+        advice_template=build_advice_template(
             spot=recommendation,
             score=score,
             band_word=band_word,
