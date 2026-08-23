@@ -118,3 +118,90 @@ def test_reproduces_the_production_sentence() -> None:
 @pytest.mark.parametrize("band_word", calc.BAND_NAMES)
 def test_the_band_word_is_always_present(band_word: str) -> None:
     assert band_word.lower() in advice(band_word=band_word)
+
+
+# --- the placeholder variant the card fills in -------------------------------
+
+
+def _advice_args(**overrides):
+    args = {
+        "spot": "Sunroom",
+        "score": 9.2,
+        "band_word": "Moderate",
+        "sun": 5.6,
+        "cov": 3.0,
+        "move_at": datetime(2026, 8, 23, 12, 0, tzinfo=TEST_TZ),
+        "bring_by": datetime(2026, 8, 23, 17, 54, tzinfo=TEST_TZ),
+        "window_text": "Sun 11:00-16:00 (peak 16.6)",
+        "dew": True,
+        "washing_out": False,
+    }
+    args.update(overrides)
+    return args
+
+
+def test_the_template_is_the_sentence_with_the_times_lifted_out() -> None:
+    """Substituting the real times back in must reproduce the state exactly.
+
+    That equivalence is the contract: the card fills these in with the viewer's
+    own clock format, and if the two versions ever drift the card silently
+    shows different wording from the entity everything else reads.
+    """
+    args = _advice_args()
+    real = calc.build_advice(**args)
+    template = calc.build_advice_template(**args)
+
+    filled = (
+        template.replace("{move_at}", "12:00")
+        .replace("{bring_by}", "17:54")
+        .replace("{window}", "Sun 11:00-16:00 (peak 16.6)")
+    )
+    assert filled == real
+
+
+def test_the_template_carries_no_clock_times_of_its_own() -> None:
+    """A leftover 24-hour time would show through on a 12-hour dashboard."""
+    template = calc.build_advice_template(**_advice_args())
+    assert "12:00" not in template
+    assert "17:54" not in template
+    assert "11:00" not in template
+    assert "{move_at}" in template and "{bring_by}" in template
+    assert "{window}" in template
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {},
+        {"washing_out": True},
+        {"washing_out": True, "drying_now": False},
+        {"move_at": None},
+        {"move_at": None, "washing_out": True},
+        {"window_text": None},
+        {"dew": False},
+        {"drying_now": False, "move_at": None},
+    ],
+)
+def test_both_versions_always_carry_the_same_clauses(overrides) -> None:
+    """Placeholders are longer than clock times, so the two could disagree.
+
+    "{move_at}" is twice the width of "12:00". If each version decided its own
+    truncation the card could drop the dew note while the entity kept it — so
+    the decision is made once, from the real sentence.
+    """
+    args = _advice_args(**overrides)
+    real = calc.build_advice(**args)
+    template = calc.build_advice_template(**args)
+
+    for marker in ("Dew overnight.", "Best ", "Sun 5.6 vs cover 3.0."):
+        assert (marker in real) == (marker in template), marker
+
+
+def test_a_long_sentence_truncates_from_the_real_text_not_the_template() -> None:
+    """A tight limit must not leave the card with clauses the entity dropped."""
+    args = _advice_args(spot="A" * 60)
+    real = calc.build_advice(limit=120, **args)
+    template = calc.build_advice_template(limit=120, **args)
+
+    assert len(real) <= 120
+    assert ("Dew overnight." in real) == ("Dew overnight." in template)

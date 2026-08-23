@@ -580,6 +580,7 @@ class LaundryWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "recommendation_band": assessment.recommendation_band,
             "good_drying_day": assessment.good_day,
             "advice": assessment.advice,
+            "advice_template": assessment.advice_template,
             "drying_now": assessment.drying_now,
             "timings": {
                 "move_outside_at": assessment.move_at,

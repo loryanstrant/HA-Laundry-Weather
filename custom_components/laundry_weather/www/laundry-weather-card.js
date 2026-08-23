@@ -15,7 +15,7 @@
  * each of which works on its own.
  */
 
-var CARD_VERSION = "0.3.0";
+var CARD_VERSION = "0.3.1";
 
 var STATIC_BASE = "/laundry_weather_static";
 
@@ -82,7 +82,13 @@ function _lwFormatters(hass, override) {
   else if (format === "24") { hour12 = false; }
   // "language" and "system" both mean "let the locale decide".
 
-  var options = { hour: "2-digit", minute: "2-digit", timeZone: zone };
+  // "2-digit" hours read naturally on a 24-hour clock ("05:54") and wrong on
+  // a 12-hour one, where nobody writes "05:54 PM".
+  var options = {
+    hour: hour12 ? "numeric" : "2-digit",
+    minute: "2-digit",
+    timeZone: zone,
+  };
   if (hour12 !== undefined) { options.hour12 = hour12; }
   // The chart axis gets its own, shorter format. A 12-hour "08:00 PM" is
   // nearly twice the width of "20:00", and using the full format there
@@ -111,6 +117,41 @@ function _lwHour(iso, fmt) {
   var when = new Date(iso);
   if (isNaN(when.getTime())) { return ""; }
   return fmt.axis.format(when).replace(/\s+/g, "\u2009");
+}
+
+/** "Sun 11:00 AM-4:00 PM (peak 16.6)", in the viewer's own clock format.
+ *
+ * Composed here rather than read from the sensor's `text` because whether a
+ * clock reads 16:00 or 4:00 PM is `hass.locale.time_format` — a per-user
+ * frontend setting that never reaches the integration.
+ */
+function _lwWindowText(window, fmt) {
+  if (!window || !window.start || !window.end) { return ""; }
+  var start = new Date(window.start);
+  var end = new Date(window.end);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) { return ""; }
+  var startDay = fmt.day.format(start);
+  var endDay = fmt.day.format(end);
+  // The horizon is 48 hours, so the window is regularly tomorrow. Dropping the
+  // day would be actively misleading; naming it twice only when it changes.
+  var tail = fmt.time.format(end);
+  if (endDay !== startDay) { tail = endDay + " " + tail; }
+  var text = startDay + " " + fmt.time.format(start) + "-" + tail;
+  if (window.peak !== undefined && window.peak !== null) {
+    text += " (peak " + window.peak + ")";
+  }
+  return text;
+}
+
+/** Fill {move_at} / {bring_by} / {window} in the advice sentence. */
+function _lwAdvice(attrs, fmt) {
+  var template = attrs.advice_template;
+  if (!template) { return attrs.advice || ""; }
+  var timings = attrs.timings || {};
+  return template
+    .split("{move_at}").join(_lwTime(timings.move_outside_at, fmt))
+    .split("{bring_by}").join(_lwTime(timings.bring_in_by, fmt))
+    .split("{window}").join(_lwWindowText(timings.best_window, fmt));
 }
 
 /** "— in 35 min" / "— in 2.3 h" / "— Sun 07:15" / "(already past)". */
@@ -316,10 +357,9 @@ class LaundryWeatherCard extends HTMLElement {
       ));
     }
 
-    if (timings.best_window && timings.best_window.text) {
-      rows.push(this._timingRow(
-        "Best window", _lwEscape(timings.best_window.text)
-      ));
+    var windowText = _lwWindowText(timings.best_window, fmt);
+    if (windowText) {
+      rows.push(this._timingRow("Best window", _lwEscape(windowText)));
     }
 
     if (overnight.rewet !== undefined && overnight.rewet !== null) {
@@ -569,10 +609,11 @@ class LaundryWeatherCard extends HTMLElement {
     var good = !!attrs.good_drying_day;
     var klingon = this._klingon(attrs);
     var compact = !!this._config.compact;
+    var advice = _lwAdvice(attrs, this._fmt());
 
     var body = this._banner(attrs, good, klingon) + '<div class="pad">' +
       this._summary(state, attrs) +
-      (attrs.advice ? '<p class="advice">' + _lwEscape(attrs.advice) + "</p>" : "") +
+      (advice ? '<p class="advice">' + _lwEscape(advice) + "</p>" : "") +
       (compact ? "" : this._spots(attrs)) +
       this._timing(attrs) +
       (compact ? "" : this._forecast(attrs)) +
@@ -655,26 +696,48 @@ class LaundryWeatherCardEditor extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._config = Object.assign({}, DEFAULTS);
     this._hass = null;
+    this._lastRenderKey = null;
   }
 
   setConfig(config) {
     this._config = Object.assign({}, DEFAULTS, config);
-    this._render();
+    this._renderIfChanged();
   }
 
+  // Home Assistant assigns `hass` on every state change — several times a
+  // second on a busy instance. Re-rendering on each one destroyed and rebuilt
+  // the very <select> the user had just opened, so the clock-format dropdown
+  // flashed open and shut. Nothing here depends on live state except the list
+  // of candidate sensors, so compare that and otherwise leave the DOM alone.
+  // Same guard the card itself uses for `_lastDataJSON`.
   set hass(hass) {
     this._hass = hass;
+    this._renderIfChanged();
+  }
+
+  _renderKey() {
+    return JSON.stringify([this._config, this._candidates()]);
+  }
+
+  _renderIfChanged() {
+    var key = this._renderKey();
+    if (key === this._lastRenderKey) { return; }
+    this._lastRenderKey = key;
     this._render();
   }
 
   _emit(changes) {
     this._config = Object.assign({}, this._config, changes);
+    // Deliberately no re-render. The control the user just touched already
+    // shows its new value, and Home Assistant echoes the change straight back
+    // through `setConfig` — so rendering here rebuilt the editor twice per
+    // keystroke. Recording the key now makes that echo a no-op.
+    this._lastRenderKey = this._renderKey();
     this.dispatchEvent(new CustomEvent("config-changed", {
       detail: { config: this._config },
       bubbles: true,
       composed: true,
     }));
-    this._render();
   }
 
   _candidates() {
