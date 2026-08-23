@@ -250,3 +250,43 @@ at screenshotting the editor.
 
 **Lesson:** when a UI bug is "it disappears", test for object identity, not for
 appearance — it is cheap, headless, and it fails loudly on the old code.
+
+## 2026-08-23 — The card editor is built on `ha-form`
+
+The editor was 137 lines of hand-built DOM producing browser-default controls, inside a Home
+Assistant dialog full of Material fields. Two `standards/ux.md` rules broken: *consistency*
+(reuse the app's primitives; match the neighbours) and *copy* (no raw identifiers where a name
+would do — the sensor picker listed `sensor.laundry_weather_recommendation` in the one field a
+non-developer must get right).
+
+The structural argument mattered more than the cosmetic one. v0.3.1 fixed the dropdown that
+flashed open and shut by adding an equality check before re-rendering. That is a guard, and a
+later edit to `_render()` could undo it. The sibling `ha-jokes` card has the identical naive
+`set hass → _render()` shape and has never had the bug, because the form element is created
+once and thereafter only `.hass`, `.schema` and `.data` are assigned; Lit patches in place.
+There is nothing to blow away.
+
+Three things specific to this card:
+
+- The picker uses `include_entities` seeded with the same candidate filter the old `<select>`
+  used, so the offered set is unchanged while gaining friendly names and search. Filtering by
+  integration alone would have offered all nine Laundry Weather sensors, most of which the card
+  cannot read.
+- The Klingon setting is tri-state — `true`/`false`/`null`, where null means "follow the
+  integration". A boolean selector cannot express three states, so it became a dropdown, with a
+  mapping in both directions. Configs written by the old checkbox editor load unchanged.
+- `_lwLoadHaComponents()` forces the frontend chunk that defines `ha-form`, copying Mushroom.
+  `window.customElements` is re-read on every call and never bound at module top level: Home
+  Assistant swaps it for a scoped-registry polyfill while booting, so a captured reference can
+  point at the wrong registry and a top-level `whenDefined` may never fire.
+
+**A trap found while previewing, worth more than the port.** `ha-entity-picker` renders
+*nothing* — zero height, empty shadow root, no error — unless it sits inside `<home-assistant>`.
+Newer HA components take `hass` from a Lit context provider rather than a property. The first
+preview attached the form to `document.body` and the sensor row silently vanished while every
+other field rendered. In production the editor lives inside the card dialog so it is fine, but
+any harness that builds the editor directly must attach it under `<home-assistant>` or it is
+testing a half-dead form.
+
+**Lesson:** a component that renders nothing is not obviously broken. When a UI check builds
+elements outside their normal parent, assert something rendered before trusting what did.

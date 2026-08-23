@@ -15,7 +15,7 @@
  * each of which works on its own.
  */
 
-var CARD_VERSION = "0.3.1";
+var CARD_VERSION = "0.4.0";
 
 var STATIC_BASE = "/laundry_weather_static";
 
@@ -178,6 +178,9 @@ class LaundryWeatherCard extends HTMLElement {
   }
 
   static getConfigElement() {
+    // Ask for the frontend chunk that defines ha-form before the editor is
+    // built, rather than after. See _lwLoadHaComponents.
+    _lwLoadHaComponents();
     return document.createElement("laundry-weather-card-editor");
   }
 
@@ -690,54 +693,137 @@ class LaundryWeatherCard extends HTMLElement {
   }
 }
 
-class LaundryWeatherCardEditor extends HTMLElement {
-  constructor() {
-    super();
-    this.attachShadow({ mode: "open" });
-    this._config = Object.assign({}, DEFAULTS);
-    this._hass = null;
-    this._lastRenderKey = null;
-  }
+/**
+ * The visual editor, built on Home Assistant's own `<ha-form>`.
+ *
+ * Hand-built controls were replaced in 0.4.0. Two reasons, one cosmetic and
+ * one structural. The editor renders inside Home Assistant's card dialog
+ * surrounded by Material fields, and raw `<select>`/`<input>` do not match
+ * them or follow the active theme. And the whole re-render fault this file
+ * carried in 0.3.0 — where assigning `hass` rebuilt the subtree and closed the
+ * dropdown the user had just opened — cannot happen here: the form element is
+ * created once and thereafter only `.hass`, `.schema` and `.data` are set, so
+ * Lit patches in place instead of replacing nodes.
+ */
 
+var EDITOR_LABELS = {
+  entity: "Recommendation sensor",
+  title: "Card title (optional)",
+  show_mascot: "Show the mascot",
+  show_spots: "Show the list of places",
+  show_timing: "Show the timings",
+  show_forecast: "Show the drying forecast",
+  show_switch: "Show the washing-on-the-line button",
+  compact: "Compact — headline and timings only",
+  time_format: "Clock format",
+  forecast_hours: "Hours on the forecast chart",
+  klingon_mode: "Klingon headline",
+  image_good: "Your own good-day picture (optional)",
+  image_bad: "Your own bad-day picture (optional)",
+};
+
+// ha-form renders the raw key name when it cannot find a label, so both of
+// these maps are required rather than decorative.
+var EDITOR_HELPERS = {
+  entity: "Everything on the card comes from this one sensor.",
+  klingon_mode: "Follow the integration setting unless you want this card to differ.",
+  image_good: "Leave blank to use the bundled artwork.",
+};
+
+/** The stored value is null/true/false; the dropdown needs three strings. */
+function _lwKlingonToMode(value) {
+  if (value === true) { return "on"; }
+  if (value === false) { return "off"; }
+  return "auto";
+}
+
+function _lwModeToKlingon(mode) {
+  if (mode === "on") { return true; }
+  if (mode === "off") { return false; }
+  // null, not false: it means "follow the integration setting", and the card's
+  // _klingon() reader distinguishes the two.
+  return null;
+}
+
+function _lwEditorSchema(candidates) {
+  return [
+    // include_entities keeps exactly the candidate set the old hand-built
+    // <select> offered — sensors carrying a `spots` attribute — while showing
+    // friendly names and a search box. Filtering by integration alone would
+    // offer all nine Laundry Weather sensors, most of which the card cannot read.
+    { name: "entity", selector: { entity: { include_entities: candidates } } },
+    { name: "title", selector: { text: {} } },
+    { name: "show_mascot", selector: { boolean: {} } },
+    { name: "show_spots", selector: { boolean: {} } },
+    { name: "show_timing", selector: { boolean: {} } },
+    { name: "show_forecast", selector: { boolean: {} } },
+    { name: "show_switch", selector: { boolean: {} } },
+    { name: "compact", selector: { boolean: {} } },
+    {
+      name: "time_format",
+      selector: { select: { mode: "dropdown", options: [
+        { value: "auto", label: "Follow Home Assistant" },
+        { value: "12", label: "12-hour (2:30 PM)" },
+        { value: "24", label: "24-hour (14:30)" },
+      ] } },
+    },
+    {
+      name: "forecast_hours",
+      selector: { number: {
+        min: 6, max: 48, step: 1, mode: "box", unit_of_measurement: "hours",
+      } },
+    },
+    {
+      name: "klingon_mode",
+      selector: { select: { mode: "dropdown", options: [
+        { value: "auto", label: "Follow the integration setting" },
+        { value: "on", label: "Always" },
+        { value: "off", label: "Never" },
+      ] } },
+    },
+    { name: "image_good", selector: { text: {} } },
+    { name: "image_bad", selector: { text: {} } },
+  ];
+}
+
+/**
+ * Force the frontend chunk that defines ha-form and the entity picker.
+ *
+ * In practice the editor is only ever built from the card dialog, which has
+ * already loaded that chunk — but this is Mushroom's belt-and-braces and costs
+ * nothing. `window.customElements` is re-read on every call rather than
+ * captured: Home Assistant swaps it for a scoped-registry polyfill while its
+ * core bundle boots, which is also why this must never be
+ * `customElements.whenDefined()` at module top level — that would bind to the
+ * native registry's method and might never fire.
+ */
+function _lwLoadHaComponents() {
+  var registry = window.customElements;
+  if (!registry.get("ha-form")) {
+    var tile = registry.get("hui-tile-card");
+    if (tile && tile.getConfigElement) { tile.getConfigElement(); }
+  }
+  if (!registry.get("ha-entity-picker")) {
+    var entities = registry.get("hui-entities-card");
+    if (entities && entities.getConfigElement) { entities.getConfigElement(); }
+  }
+}
+
+class LaundryWeatherCardEditor extends HTMLElement {
   setConfig(config) {
     this._config = Object.assign({}, DEFAULTS, config);
-    this._renderIfChanged();
-  }
-
-  // Home Assistant assigns `hass` on every state change — several times a
-  // second on a busy instance. Re-rendering on each one destroyed and rebuilt
-  // the very <select> the user had just opened, so the clock-format dropdown
-  // flashed open and shut. Nothing here depends on live state except the list
-  // of candidate sensors, so compare that and otherwise leave the DOM alone.
-  // Same guard the card itself uses for `_lastDataJSON`.
-  set hass(hass) {
-    this._hass = hass;
-    this._renderIfChanged();
-  }
-
-  _renderKey() {
-    return JSON.stringify([this._config, this._candidates()]);
-  }
-
-  _renderIfChanged() {
-    var key = this._renderKey();
-    if (key === this._lastRenderKey) { return; }
-    this._lastRenderKey = key;
     this._render();
   }
 
-  _emit(changes) {
-    this._config = Object.assign({}, this._config, changes);
-    // Deliberately no re-render. The control the user just touched already
-    // shows its new value, and Home Assistant echoes the change straight back
-    // through `setConfig` — so rendering here rebuilt the editor twice per
-    // keystroke. Recording the key now makes that echo a no-op.
-    this._lastRenderKey = this._renderKey();
-    this.dispatchEvent(new CustomEvent("config-changed", {
-      detail: { config: this._config },
-      bubbles: true,
-      composed: true,
-    }));
+  // Safe to render on every tick, unlike the hand-built version this replaced:
+  // nothing is destroyed, the form just receives new values.
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
+  }
+
+  connectedCallback() {
+    _lwLoadHaComponents();
   }
 
   _candidates() {
@@ -746,85 +832,65 @@ class LaundryWeatherCardEditor extends HTMLElement {
     return Object.keys(states).filter(function (id) {
       return id.indexOf("sensor.") === 0 && states[id].attributes &&
         states[id].attributes.spots !== undefined;
-    });
+    }).sort();
+  }
+
+  _schema() {
+    // Rebuilt only when the candidate list actually changes, so ha-form is not
+    // handed a fresh array object on every state update.
+    var candidates = this._candidates();
+    var key = candidates.join(",");
+    if (!this._schemaCache || this._schemaKey !== key) {
+      this._schemaKey = key;
+      this._schemaCache = _lwEditorSchema(candidates);
+    }
+    return this._schemaCache;
+  }
+
+  _formData() {
+    var data = Object.assign({}, this._config);
+    data.klingon_mode = _lwKlingonToMode(this._config.klingon);
+    delete data.klingon;
+    return data;
   }
 
   _render() {
-    var config = this._config;
-    var options = this._candidates().map(function (id) {
-      return '<option value="' + _lwEscape(id) + '"' +
-        (id === config.entity ? " selected" : "") + ">" + _lwEscape(id) +
-        "</option>";
-    }).join("");
+    // ha-form needs hass to resolve its selectors, so wait for it.
+    if (!this._hass || !this._config) { return; }
 
-    var toggles = [
-      ["show_mascot", "Show the mascot"],
-      ["show_spots", "Show the list of places"],
-      ["show_timing", "Show the timings"],
-      ["show_forecast", "Show the drying forecast"],
-      ["show_switch", "Show the washing-on-the-line button"],
-      ["compact", "Compact — headline and timings only"],
-    ].map(function (pair) {
-      return '<label class="row"><input type="checkbox" data-key="' + pair[0] +
-        '"' + (config[pair[0]] ? " checked" : "") + "> " + pair[1] + "</label>";
-    }).join("");
+    if (!this._form) {
+      var form = document.createElement("ha-form");
+      form.computeLabel = function (schema) {
+        return EDITOR_LABELS[schema.name] || schema.name;
+      };
+      form.computeHelper = function (schema) {
+        return EDITOR_HELPERS[schema.name] || "";
+      };
+      form.addEventListener("value-changed", this._onValueChanged.bind(this));
+      // Light DOM, matching the sibling ha-jokes card: the dialog styles the
+      // editor's own children, and the entity picker reads `hass` from a Lit
+      // context provider further up the tree.
+      this.appendChild(form);
+      this._form = form;
+    }
 
-    this.shadowRoot.innerHTML =
-      "<style>" +
-      ".wrap{display:flex;flex-direction:column;gap:10px;padding:8px 0}" +
-      "label{font-size:14px}" +
-      ".row{display:flex;align-items:center;gap:8px}" +
-      "select,input[type=text],input[type=number]{width:100%;padding:6px;" +
-      "font:inherit;box-sizing:border-box}" +
-      ".hint{font-size:12px;color:var(--secondary-text-color);margin:-4px 0 4px}" +
-      "</style>" +
-      '<div class="wrap">' +
-      "<label>Recommendation sensor<select data-key=\"entity\">" +
-      '<option value="">Choose…</option>' + options + "</select></label>" +
-      '<p class="hint">Everything on the card comes from this one sensor.</p>' +
-      "<label>Card title (optional)<input type=\"text\" data-key=\"title\" " +
-      'value="' + _lwEscape(config.title) + '"></label>' +
-      toggles +
-      "<label>Clock format" +
-      "<select data-key=\"time_format\">" +
-      ["auto", "12", "24"].map(function (v) {
-        var label = v === "auto" ? "Follow Home Assistant"
-          : (v === "12" ? "12-hour (2:30 PM)" : "24-hour (14:30)");
-        return '<option value="' + v + '"' +
-          (config.time_format === v ? " selected" : "") + ">" + label + "</option>";
-      }).join("") + "</select></label>" +
-      "<label>Hours on the forecast chart<input type=\"number\" min=\"6\" " +
-      'max="48" data-key="forecast_hours" value="' +
-      _lwEscape(config.forecast_hours) + '"></label>' +
-      '<label class="row"><input type="checkbox" data-key="klingon"' +
-      (config.klingon === true ? " checked" : "") + "> Klingon headline</label>" +
-      '<p class="hint">Leave unticked to follow the integration setting.</p>' +
-      "<label>Your own good-day picture (optional)<input type=\"text\" " +
-      'data-key="image_good" value="' + _lwEscape(config.image_good) +
-      '" placeholder="/local/my-good-day.png"></label>' +
-      "<label>Your own bad-day picture (optional)<input type=\"text\" " +
-      'data-key="image_bad" value="' + _lwEscape(config.image_bad) +
-      '" placeholder="/local/my-bad-day.png"></label>' +
-      "</div>";
+    this._form.hass = this._hass;
+    this._form.schema = this._schema();
+    this._form.data = this._formData();
+  }
 
-    var self = this;
-    this.shadowRoot.querySelectorAll("[data-key]").forEach(function (node) {
-      node.addEventListener("change", function (event) {
-        var key = event.target.getAttribute("data-key");
-        var value;
-        if (event.target.type === "checkbox") {
-          value = event.target.checked;
-          if (key === "klingon" && !value) { value = null; }
-        } else if (event.target.type === "number") {
-          value = Number(event.target.value);
-        } else {
-          value = event.target.value;
-        }
-        var changes = {};
-        changes[key] = value;
-        self._emit(changes);
-      });
-    });
+  _onValueChanged(event) {
+    // Stop the inner event so only our config-changed reaches the editor host.
+    event.stopPropagation();
+    var value = Object.assign({}, event.detail.value);
+    value.klingon = _lwModeToKlingon(value.klingon_mode);
+    delete value.klingon_mode;
+    this._config = value;
+    this.dispatchEvent(new CustomEvent("config-changed", {
+      detail: { config: value },
+      bubbles: true,
+      composed: true,
+    }));
   }
 }
 

@@ -14,6 +14,13 @@ card on a wall.
 
 ## Constraints found before designing
 
+> ⚠️ **Superseded in v0.3.0.** The constraint below is half right and the conclusion drawn
+> from it was wrong. Home Assistant only *loads* blueprints from `config/blueprints/`, but
+> nothing stops an integration copying them there at setup — which is what HACS does for
+> blueprint repositories, and what `blueprints_install.py` now does here. The blueprints ship
+> inside the component and install themselves; the URL import is the fallback for people who
+> have not installed the integration. See `DECISIONS.md`, 2026-08-22.
+
 **Home Assistant will not load a blueprint from a custom integration.**
 `blueprint/models.py` resolves the folder as `hass.config.path("blueprints", domain)` — only
 `config/blueprints/`. A blueprint shipped inside `custom_components/` is invisible. It has to
