@@ -19,6 +19,30 @@ TEST_TZ = ZoneInfo(TEST_TZ_NAME)
 os.environ["TZ"] = TEST_TZ_NAME
 
 
+# The moment every test runs at. Mid-morning on a late-winter Saturday, so a
+# whole drying day lies ahead of "now" — which is the shape the production
+# snapshot these tests are built from was captured in.
+TEST_NOW = datetime(2026, 8, 22, 9, 0, tzinfo=TEST_TZ)
+
+
+@pytest.fixture(autouse=True)
+def frozen_clock(freezer):
+    """Pin the wall clock, for every test, before Home Assistant starts.
+
+    Several tests build their forecast relative to `dt_util.now()` and then
+    assert on a judgement the integration makes about *the rest of today* —
+    whether the day is worth drying on, whether a best window is still ahead.
+    Run at 09:00 those hold; run at 21:00 the good hours are tomorrow's and the
+    same assertions fail. That is exactly what happened: two tests passed all
+    morning and turned the CI run red in the evening, with nothing changed.
+
+    Freezing here rather than in each test means a test added later cannot
+    quietly reintroduce the dependency on what time the run happens to start.
+    """
+    freezer.move_to(TEST_NOW)
+    return freezer
+
+
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations):
     """Let Home Assistant load this custom integration in every test."""
@@ -50,8 +74,12 @@ def local_tz() -> ZoneInfo:
 
 @pytest.fixture
 def now() -> datetime:
-    """A fixed local 'now' — mid-morning, so a full drying day lies ahead."""
-    return datetime(2026, 8, 22, 9, 0, tzinfo=TEST_TZ)
+    """A fixed local 'now' — mid-morning, so a full drying day lies ahead.
+
+    The same moment the clock is frozen to, so a model test and an integration
+    test are talking about the same instant.
+    """
+    return TEST_NOW
 
 
 @pytest.fixture
