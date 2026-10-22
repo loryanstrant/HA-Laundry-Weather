@@ -87,7 +87,7 @@
     {
       "path": "DECISIONS.md",
       "title": "Decisions",
-      "lines": 292,
+      "lines": 438,
       "headings": [
         {
           "level": 2,
@@ -163,13 +163,23 @@
           "level": 2,
           "text": "2026-08-23 — The card editor is built on ha-form",
           "anchor": "2026-08-23--the-card-editor-is-built-on-ha-form"
+        },
+        {
+          "level": 2,
+          "text": "2026-10-22 — mtime is not a user-edit detector",
+          "anchor": "2026-10-22--mtime-is-not-a-user-edit-detector"
+        },
+        {
+          "level": 2,
+          "text": "2026-10-22 — The test suite runs at a fixed moment",
+          "anchor": "2026-10-22--the-test-suite-runs-at-a-fixed-moment"
         }
       ]
     },
     {
       "path": "README.md",
       "title": "Laundry Weather",
-      "lines": 481,
+      "lines": 500,
       "headings": [
         {
           "level": 2,
@@ -301,7 +311,7 @@
     {
       "path": "docs/specs/bring-it-in-blueprints.md",
       "title": "Spec — \"Bring it in\" notification blueprints",
-      "lines": 73,
+      "lines": 77,
       "headings": [
         {
           "level": 2,
@@ -1773,8 +1783,8 @@
     "tracked_files_only": true
   },
   "generated": {
-    "source_commit": "3a7bf4ab3951208cfe33c46b03f62656037a2a73",
-    "content_hash": "e691749b0c7643ae",
+    "source_commit": "1344975c346215fe61685e05413bad28c4cd39b4",
+    "content_hash": "96cb27f80103db15",
     "generator": "navgen"
   }
 }
