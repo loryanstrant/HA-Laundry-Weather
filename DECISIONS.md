@@ -154,9 +154,11 @@ manual step for a feature the card already gets for free.
 
 Wrong conclusion. `HA-Personal-Hydration-Manager` already solves this the way
 HACS does for blueprint repositories: bundle them in the component and copy them
-across at setup. `blueprints_install.py` does that here, off the event loop, and
-only when the shipped file is newer than the installed one, so a user's own edits
-are not thrown away on every restart.
+across at setup. `blueprints_install.py` does that here, off the event loop.
+
+> ⚠️ The guard this entry originally described — copy "only when the shipped
+> file is newer than the installed one" — was wrong, and was replaced in v0.4.1.
+> See *2026-10-22 — mtime is not a user-edit detector* below.
 
 The root copy stays, because the README's import badges have to keep working for
 people who have not installed the integration. Two copies of the same file is a
@@ -290,3 +292,49 @@ testing a half-dead form.
 
 **Lesson:** a component that renders nothing is not obviously broken. When a UI check builds
 elements outside their normal parent, assert something rendered before trusting what did.
+
+## 2026-10-22 — mtime is not a user-edit detector
+
+HACS review (hacs/default#10258) blocked the default-repository submission on
+one line of `blueprints_install.py`:
+
+> replaces the copy in `config/blueprints/automation/loryanstrant/` whenever the
+> bundled file is newer. Anyone who edited their copy loses those edits on the
+> next upgrade, without warning.
+
+Correct. The guard was `source.stat().st_mtime > destination.stat().st_mtime`,
+and a HACS upgrade unzips the component fresh, so the shipped file's mtime is
+*always* newer than anything already sitting in the config directory. The guard
+only ever held within a single install — exactly the case that does not matter.
+
+The test did not catch it, and the reason is the interesting part.
+`test_an_edited_copy_is_not_clobbered` edited the destination *after*
+installing, which left the destination the newer file, so the broken guard
+passed. The test reproduced the ordering of a restart and never the ordering of
+an upgrade — the only ordering the guard existed for.
+
+v0.4.1 records a SHA-256 of every file it writes, in
+`config/.storage/laundry_weather_blueprints`. A destination whose hash still
+matches the record is untouched and safe to replace; anything else is the
+user's and is left alone with a log line. A file with no record — anyone who
+installed before v0.4.1 — is also left alone, because the bytes cannot
+distinguish an old shipped version from an edited one. The cost is that those
+users must re-import by hand to get an improved blueprint, which the release
+notes and README both spell out; the alternative was shipping a list of every
+historical hash and maintaining it forever.
+
+Three further hazards came out of reviewing the replacement, all of which end
+in the same place — a file wrongly classified as edited, and therefore frozen
+forever. The once-per-run flag was being set *after* two awaits, so two config
+entries set up concurrently could both reach the executor and hash files each
+other was mid-write; it is now claimed before the first await. Writes go to a
+temporary name and are renamed into place, so a disk that fills part-way leaves
+the old file rather than a truncated one with no matching hash. And a corrupt
+`.storage` record now warns instead of raising, because a side feature must not
+take the drying model down with it.
+
+`HA-Personal-Hydration-Manager` has the same installer and the same bug.
+
+**Lesson:** a guard needs a test that reproduces the *hostile* ordering, not a
+convenient one. "Edit then reinstall" and "edit, then an upgrade lands" are
+different tests, and only the second one was ever the requirement.

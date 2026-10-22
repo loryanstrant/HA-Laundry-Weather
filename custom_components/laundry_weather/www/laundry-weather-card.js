@@ -15,7 +15,7 @@
  * each of which works on its own.
  */
 
-var CARD_VERSION = "0.4.0";
+var CARD_VERSION = "0.4.1";
 
 var STATIC_BASE = "/laundry_weather_static";
 

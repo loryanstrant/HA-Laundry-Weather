@@ -113,8 +113,18 @@ into a notification — one for your phone, one spoken aloud.
 | **Spoken announcement** | [![Open your Home Assistant instance and show the blueprint import dialog.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Floryanstrant%2FHA-Laundry-Weather%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Floryanstrant%2Flaundry_weather_bring_it_in_tts.yaml) |
 
 These are the same files, so an imported copy and an installed one live side by side rather
-than fighting. Edits you make to your own copy are kept: the integration only replaces a
-blueprint when the version it ships is newer than the one already there.
+than fighting.
+
+**Edits you make are kept, permanently.** The integration remembers exactly what it installed,
+so on an upgrade it will only replace a blueprint you have never touched. The moment yours
+differs from the one it put there, it stops touching that file at all and just mentions it in
+the log. The same goes for any copy that was already in place before v0.4.1 — it has no record
+of that one, so it leaves it alone.
+
+The trade is that an improved blueprint will not reach you automatically once you have made a
+copy your own. To take a new version: delete yours under **Settings → Automations & scenes →
+Blueprints** and restart Home Assistant, or use the import links above. Automations you have
+already built from a blueprint keep working either way.
 
 </details>
 
