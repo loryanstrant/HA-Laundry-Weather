@@ -333,8 +333,30 @@ the old file rather than a truncated one with no matching hash. And a corrupt
 `.storage` record now warns instead of raising, because a side feature must not
 take the drying model down with it.
 
+One consequence of the hash scheme, found while verifying the release notes and
+worth writing down because it reads like a bug. **Re-importing by URL does not
+restore tracking.** The README's import badges and the integration install to
+the same path, and the repo's two copies of each blueprint are byte-identical
+(a packaging test holds them so) — but Home Assistant does not write what it
+fetched. `DomainBlueprints._create_file` writes `yaml.dump(blueprint.data)`, a
+re-serialisation of the parsed structure, so the comments go and the formatting
+is normalised: the push blueprint arrives as 7,015 bytes and lands as 5,710.
+That can never match the shipped hash, so an imported copy is classified as the
+user's and frozen, and every restart logs the "your copy differs" line.
+
+Left as it is. The behaviour is correct and conservative, and the alternative —
+also comparing against a YAML-normalised form of the source — would put a YAML
+parse in the install path and make the equivalence depend on HA's dumper being
+stable across versions. The fix is editorial instead: the README and the v0.4.1
+notes now name delete-and-restart as the route that resumes automatic updates,
+and present the import links as a one-off.
+
 `HA-Personal-Hydration-Manager` has the same installer and the same bug.
 
 **Lesson:** a guard needs a test that reproduces the *hostile* ordering, not a
 convenient one. "Edit then reinstall" and "edit, then an upgrade lands" are
 different tests, and only the second one was ever the requirement.
+
+**Second lesson:** "the bytes we ship" and "the bytes that land" are different
+quantities the moment anything else parses and rewrites the file. Check what
+the other tool actually writes before building a comparison on top of it.
