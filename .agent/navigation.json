@@ -1,0 +1,1780 @@
+{
+  "schema_version": "1.0",
+  "repository": "HA-Laundry-Weather",
+  "identity": {
+    "description": "alt=\"Laundry Weather icon: a rotary washing line with a shirt and socks, a thermometer and a sun\">",
+    "default_branch": "main",
+    "languages": {
+      "Python": 25,
+      "JavaScript": 1
+    },
+    "topics": [],
+    "licence": "MIT License",
+    "file_count": 65
+  },
+  "start_here": {
+    "readme": "README.md",
+    "agents_md": "AGENTS.md",
+    "entry_points": [],
+    "decision_records": [
+      "DECISIONS.md"
+    ],
+    "build_config": [
+      "custom_components/laundry_weather/manifest.json",
+      "hacs.json",
+      "pytest.ini"
+    ],
+    "source_roots": [
+      "custom_components",
+      "scripts"
+    ]
+  },
+  "documentation": [
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug_report.md",
+      "title": "Bug Report",
+      "lines": 30,
+      "headings": []
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/feature_request.md",
+      "title": "Feature Request",
+      "lines": 20,
+      "headings": []
+    },
+    {
+      "path": ".github/copilot-instructions.md",
+      "title": "Copilot instructions — HA-Laundry-Weather",
+      "lines": 58,
+      "headings": [
+        {
+          "level": 2,
+          "text": "What this repo is",
+          "anchor": "what-this-repo-is"
+        },
+        {
+          "level": 2,
+          "text": "Working style",
+          "anchor": "working-style"
+        },
+        {
+          "level": 2,
+          "text": "HA component rules",
+          "anchor": "ha-component-rules"
+        },
+        {
+          "level": 2,
+          "text": "Repo rules",
+          "anchor": "repo-rules"
+        },
+        {
+          "level": 2,
+          "text": "Accessibility (hard rule)",
+          "anchor": "accessibility-hard-rule"
+        },
+        {
+          "level": 2,
+          "text": "Test & deploy",
+          "anchor": "test--deploy"
+        },
+        {
+          "level": 2,
+          "text": "Never",
+          "anchor": "never"
+        }
+      ]
+    },
+    {
+      "path": "DECISIONS.md",
+      "title": "Decisions",
+      "lines": 292,
+      "headings": [
+        {
+          "level": 2,
+          "text": "2026-08-22 — Why this exists at all",
+          "anchor": "2026-08-22--why-this-exists-at-all"
+        },
+        {
+          "level": 2,
+          "text": "2026-08-22 — bring_in_by is computed independently of move_outside_at",
+          "anchor": "2026-08-22--bring_in_by-is-computed-independently-of-move_outside_at"
+        },
+        {
+          "level": 2,
+          "text": "2026-08-22 — Solar radiation is smoothed inside the integration",
+          "anchor": "2026-08-22--solar-radiation-is-smoothed-inside-the-integration"
+        },
+        {
+          "level": 2,
+          "text": "2026-08-22 — Every spot is scored with the same formula",
+          "anchor": "2026-08-22--every-spot-is-scored-with-the-same-formula"
+        },
+        {
+          "level": 2,
+          "text": "2026-08-22 — One tunable moves both sun scales (D4)",
+          "anchor": "2026-08-22--one-tunable-moves-both-sun-scales-d4"
+        },
+        {
+          "level": 2,
+          "text": "2026-08-22 — Forecast sunshine falls back to cloud cover",
+          "anchor": "2026-08-22--forecast-sunshine-falls-back-to-cloud-cover"
+        },
+        {
+          "level": 2,
+          "text": "2026-08-22 — Bands, not hours-to-dry",
+          "anchor": "2026-08-22--bands-not-hours-to-dry"
+        },
+        {
+          "level": 2,
+          "text": "2026-08-22 — The card carries no colour-coded state",
+          "anchor": "2026-08-22--the-card-carries-no-colour-coded-state"
+        },
+        {
+          "level": 2,
+          "text": "2026-08-22 — Klingon is a string swap, not internationalisation",
+          "anchor": "2026-08-22--klingon-is-a-string-swap-not-internationalisation"
+        },
+        {
+          "level": 2,
+          "text": "2026-08-22 — The blueprints ship inside the component and install themselves",
+          "anchor": "2026-08-22--the-blueprints-ship-inside-the-component-and-install-themselves"
+        },
+        {
+          "level": 2,
+          "text": "2026-08-22 — Every test gets its own config directory",
+          "anchor": "2026-08-22--every-test-gets-its-own-config-directory"
+        },
+        {
+          "level": 2,
+          "text": "2026-08-23 — The headline judges the day, not the minute",
+          "anchor": "2026-08-23--the-headline-judges-the-day-not-the-minute"
+        },
+        {
+          "level": 2,
+          "text": "2026-08-23 — The card renders its own clock times",
+          "anchor": "2026-08-23--the-card-renders-its-own-clock-times"
+        },
+        {
+          "level": 2,
+          "text": "2026-08-23 — The card editor stopped rebuilding itself",
+          "anchor": "2026-08-23--the-card-editor-stopped-rebuilding-itself"
+        },
+        {
+          "level": 2,
+          "text": "2026-08-23 — The card editor is built on ha-form",
+          "anchor": "2026-08-23--the-card-editor-is-built-on-ha-form"
+        }
+      ]
+    },
+    {
+      "path": "README.md",
+      "title": "Laundry Weather",
+      "lines": 481,
+      "headings": [
+        {
+          "level": 2,
+          "text": "What it tells you",
+          "anchor": "what-it-tells-you"
+        },
+        {
+          "level": 2,
+          "text": "Installing",
+          "anchor": "installing"
+        },
+        {
+          "level": 2,
+          "text": "Setting it up",
+          "anchor": "setting-it-up"
+        },
+        {
+          "level": 3,
+          "text": "Settings you can change later",
+          "anchor": "settings-you-can-change-later"
+        },
+        {
+          "level": 2,
+          "text": "Telling you to bring it in",
+          "anchor": "telling-you-to-bring-it-in"
+        },
+        {
+          "level": 3,
+          "text": "How the score is worked out",
+          "anchor": "how-the-score-is-worked-out"
+        },
+        {
+          "level": 3,
+          "text": "Drying is about how thirsty the air is",
+          "anchor": "drying-is-about-how-thirsty-the-air-is"
+        },
+        {
+          "level": 3,
+          "text": "Wind helps, up to a point",
+          "anchor": "wind-helps-up-to-a-point"
+        },
+        {
+          "level": 3,
+          "text": "The sun",
+          "anchor": "the-sun"
+        },
+        {
+          "level": 3,
+          "text": "The forecast",
+          "anchor": "the-forecast"
+        },
+        {
+          "level": 3,
+          "text": "Bands, not hours",
+          "anchor": "bands-not-hours"
+        },
+        {
+          "level": 3,
+          "text": "Choosing a spot, and the timings",
+          "anchor": "choosing-a-spot-and-the-timings"
+        },
+        {
+          "level": 3,
+          "text": "Solar readings are smoothed",
+          "anchor": "solar-readings-are-smoothed"
+        },
+        {
+          "level": 3,
+          "text": "What else is worth having installed",
+          "anchor": "what-else-is-worth-having-installed"
+        },
+        {
+          "level": 3,
+          "text": "A local weather station — the biggest single win",
+          "anchor": "a-local-weather-station--the-biggest-single-win"
+        },
+        {
+          "level": 3,
+          "text": "Room temperature and humidity sensors",
+          "anchor": "room-temperature-and-humidity-sensors"
+        },
+        {
+          "level": 3,
+          "text": "Sun, or Sun2",
+          "anchor": "sun-or-sun2"
+        },
+        {
+          "level": 3,
+          "text": "An hourly forecast provider",
+          "anchor": "an-hourly-forecast-provider"
+        },
+        {
+          "level": 3,
+          "text": "A Statistics helper for solar radiation",
+          "anchor": "a-statistics-helper-for-solar-radiation"
+        },
+        {
+          "level": 3,
+          "text": "Rain detection",
+          "anchor": "rain-detection"
+        },
+        {
+          "level": 3,
+          "text": "Entities",
+          "anchor": "entities"
+        },
+        {
+          "level": 3,
+          "text": "The card",
+          "anchor": "the-card"
+        },
+        {
+          "level": 3,
+          "text": "Reading the chart",
+          "anchor": "reading-the-chart"
+        },
+        {
+          "level": 3,
+          "text": "About the Klingon",
+          "anchor": "about-the-klingon"
+        },
+        {
+          "level": 2,
+          "text": "Credits and licensing",
+          "anchor": "credits-and-licensing"
+        }
+      ]
+    },
+    {
+      "path": "docs/specs/bring-it-in-blueprints.md",
+      "title": "Spec — \"Bring it in\" notification blueprints",
+      "lines": 73,
+      "headings": [
+        {
+          "level": 2,
+          "text": "Problem",
+          "anchor": "problem"
+        },
+        {
+          "level": 2,
+          "text": "Constraints found before designing",
+          "anchor": "constraints-found-before-designing"
+        },
+        {
+          "level": 2,
+          "text": "Flow",
+          "anchor": "flow"
+        },
+        {
+          "level": 2,
+          "text": "Acceptance criteria",
+          "anchor": "acceptance-criteria"
+        },
+        {
+          "level": 2,
+          "text": "Non-goals",
+          "anchor": "non-goals"
+        }
+      ]
+    },
+    {
+      "path": "docs/specs/card-editor-ha-form.md",
+      "title": "Spec — Card editor on ha-form",
+      "lines": 99,
+      "headings": [
+        {
+          "level": 2,
+          "text": "Problem",
+          "anchor": "problem"
+        },
+        {
+          "level": 2,
+          "text": "Scope",
+          "anchor": "scope"
+        },
+        {
+          "level": 2,
+          "text": "Constraints found before designing",
+          "anchor": "constraints-found-before-designing"
+        },
+        {
+          "level": 2,
+          "text": "Flow",
+          "anchor": "flow"
+        },
+        {
+          "level": 2,
+          "text": "Acceptance criteria",
+          "anchor": "acceptance-criteria"
+        },
+        {
+          "level": 2,
+          "text": "Non-goals",
+          "anchor": "non-goals"
+        }
+      ]
+    },
+    {
+      "path": "docs/specs/laundry-weather.md",
+      "title": "Spec — Laundry Weather",
+      "lines": 157,
+      "headings": [
+        {
+          "level": 2,
+          "text": "Problem",
+          "anchor": "problem"
+        },
+        {
+          "level": 2,
+          "text": "What we are building",
+          "anchor": "what-we-are-building"
+        },
+        {
+          "level": 2,
+          "text": "Flow",
+          "anchor": "flow"
+        },
+        {
+          "level": 2,
+          "text": "The model",
+          "anchor": "the-model"
+        },
+        {
+          "level": 2,
+          "text": "Acceptance criteria",
+          "anchor": "acceptance-criteria"
+        },
+        {
+          "level": 2,
+          "text": "Non-goals",
+          "anchor": "non-goals"
+        }
+      ]
+    },
+    {
+      "path": "docs/the-drying-model.md",
+      "title": "The drying model",
+      "lines": 352,
+      "headings": [
+        {
+          "level": 2,
+          "text": "1. Why vapour pressure deficit",
+          "anchor": "1-why-vapour-pressure-deficit"
+        },
+        {
+          "level": 3,
+          "text": "Confidence",
+          "anchor": "confidence"
+        },
+        {
+          "level": 3,
+          "text": "The consequence people find surprising",
+          "anchor": "the-consequence-people-find-surprising"
+        },
+        {
+          "level": 2,
+          "text": "2. Wind",
+          "anchor": "2-wind"
+        },
+        {
+          "level": 2,
+          "text": "3. Sun",
+          "anchor": "3-sun"
+        },
+        {
+          "level": 3,
+          "text": "Separating cloud from time of day",
+          "anchor": "separating-cloud-from-time-of-day"
+        },
+        {
+          "level": 3,
+          "text": "Gating by elevation",
+          "anchor": "gating-by-elevation"
+        },
+        {
+          "level": 3,
+          "text": "The coefficient",
+          "anchor": "the-coefficient"
+        },
+        {
+          "level": 3,
+          "text": "Forecast hours have no irradiance",
+          "anchor": "forecast-hours-have-no-irradiance"
+        },
+        {
+          "level": 2,
+          "text": "4. Rain",
+          "anchor": "4-rain"
+        },
+        {
+          "level": 2,
+          "text": "5. Bands",
+          "anchor": "5-bands"
+        },
+        {
+          "level": 3,
+          "text": "Why not hours-to-dry",
+          "anchor": "why-not-hours-to-dry"
+        },
+        {
+          "level": 2,
+          "text": "6. Derived answers",
+          "anchor": "6-derived-answers"
+        },
+        {
+          "level": 3,
+          "text": "Recommendation",
+          "anchor": "recommendation"
+        },
+        {
+          "level": 3,
+          "text": "Move outside at",
+          "anchor": "move-outside-at"
+        },
+        {
+          "level": 3,
+          "text": "Bring in by",
+          "anchor": "bring-in-by"
+        },
+        {
+          "level": 3,
+          "text": "Best window",
+          "anchor": "best-window"
+        },
+        {
+          "level": 3,
+          "text": "Overnight dew",
+          "anchor": "overnight-dew"
+        },
+        {
+          "level": 3,
+          "text": "Good drying day",
+          "anchor": "good-drying-day"
+        },
+        {
+          "level": 2,
+          "text": "7. Smoothing",
+          "anchor": "7-smoothing"
+        },
+        {
+          "level": 2,
+          "text": "8. Refresh rates",
+          "anchor": "8-refresh-rates"
+        },
+        {
+          "level": 2,
+          "text": "9. Known limitations",
+          "anchor": "9-known-limitations"
+        }
+      ]
+    },
+    {
+      "path": "info.md",
+      "title": "Laundry Weather",
+      "lines": 45,
+      "headings": [
+        {
+          "level": 2,
+          "text": "What it tells you",
+          "anchor": "what-it-tells-you"
+        },
+        {
+          "level": 2,
+          "text": "How it decides",
+          "anchor": "how-it-decides"
+        },
+        {
+          "level": 2,
+          "text": "What you need",
+          "anchor": "what-you-need"
+        },
+        {
+          "level": 2,
+          "text": "Accessibility",
+          "anchor": "accessibility"
+        }
+      ]
+    }
+  ],
+  "code": {
+    "source_roots": [
+      "custom_components",
+      "scripts"
+    ],
+    "symbol_source": "repomix (tree-sitter signatures)",
+    "routes": [],
+    "files": [
+      {
+        "path": "custom_components/laundry_weather/__init__.py",
+        "symbols": [
+          {
+            "kind": "const",
+            "name": "PLATFORMS",
+            "parent": "",
+            "signature": "PLATFORMS: list[Platform] = ["
+          },
+          {
+            "kind": "const",
+            "name": "CARD_URL",
+            "parent": "",
+            "signature": "CARD_URL = f\"{STATIC_URL_BASE}/{CARD_FILENAME}\""
+          },
+          {
+            "kind": "const",
+            "name": "CARD_RESOURCE_URL",
+            "parent": "",
+            "signature": "CARD_RESOURCE_URL = f\"{CARD_URL}?v={INTEGRATION_VERSION}\""
+          },
+          {
+            "kind": "const",
+            "name": "RESOURCE_RETRY_SECONDS",
+            "parent": "",
+            "signature": "RESOURCE_RETRY_SECONDS = 5"
+          },
+          {
+            "kind": "const",
+            "name": "RESOURCE_RETRY_LIMIT",
+            "parent": "",
+            "signature": "RESOURCE_RETRY_LIMIT = 12"
+          },
+          {
+            "kind": "const",
+            "name": "SET_WASHING_OUT_SCHEMA",
+            "parent": "",
+            "signature": "SET_WASHING_OUT_SCHEMA = vol.Schema("
+          },
+          {
+            "kind": "function",
+            "name": "async_setup_entry",
+            "parent": "",
+            "signature": "async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool"
+          },
+          {
+            "kind": "function",
+            "name": "async_unload_entry",
+            "parent": "",
+            "signature": "async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool"
+          },
+          {
+            "kind": "function",
+            "name": "async_reload_entry",
+            "parent": "",
+            "signature": "async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None"
+          }
+        ]
+      },
+      {
+        "path": "custom_components/laundry_weather/binary_sensor.py",
+        "symbols": [
+          {
+            "kind": "class",
+            "name": "GoodDryingDayBinarySensor",
+            "parent": "",
+            "signature": "class GoodDryingDayBinarySensor(LaundryWeatherEntity, BinarySensorEntity)"
+          },
+          {
+            "kind": "function",
+            "name": "is_on",
+            "parent": "GoodDryingDayBinarySensor",
+            "signature": "is_on(self) -> bool | None"
+          },
+          {
+            "kind": "class",
+            "name": "OvernightDewBinarySensor",
+            "parent": "",
+            "signature": "class OvernightDewBinarySensor(LaundryWeatherEntity, BinarySensorEntity)"
+          },
+          {
+            "kind": "function",
+            "name": "extra_state_attributes",
+            "parent": "OvernightDewBinarySensor",
+            "signature": "extra_state_attributes(self) -> dict"
+          },
+          {
+            "kind": "class",
+            "name": "CurrentlyRainingBinarySensor",
+            "parent": "",
+            "signature": "class CurrentlyRainingBinarySensor(LaundryWeatherEntity, BinarySensorEntity)"
+          }
+        ]
+      },
+      {
+        "path": "custom_components/laundry_weather/blueprints_install.py",
+        "symbols": [
+          {
+            "kind": "function",
+            "name": "async_install_blueprints",
+            "parent": "",
+            "signature": "async_install_blueprints(hass: HomeAssistant) -> None"
+          }
+        ]
+      },
+      {
+        "path": "custom_components/laundry_weather/calc.py",
+        "symbols": [
+          {
+            "kind": "const",
+            "name": "DEFAULT_SUN_COEFF",
+            "parent": "",
+            "signature": "DEFAULT_SUN_COEFF = 1.2"
+          },
+          {
+            "kind": "const",
+            "name": "DEFAULT_MARGIN",
+            "parent": "",
+            "signature": "DEFAULT_MARGIN = 1.15"
+          },
+          {
+            "kind": "const",
+            "name": "DEFAULT_BRING_IN_FLOOR",
+            "parent": "",
+            "signature": "DEFAULT_BRING_IN_FLOOR = 2.5"
+          },
+          {
+            "kind": "const",
+            "name": "DEFAULT_BANDS",
+            "parent": "",
+            "signature": "DEFAULT_BANDS = (12.0, 6.0, 3.0)"
+          },
+          {
+            "kind": "const",
+            "name": "BAND_NAMES",
+            "parent": "",
+            "signature": "BAND_NAMES = (\"Barely\", \"Slow\", \"Moderate\", \"Fast\")"
+          },
+          {
+            "kind": "const",
+            "name": "BAND_MARKS",
+            "parent": "",
+            "signature": "BAND_MARKS = (\"○○○\", \"●○○\", \"●●○\", \"●●●\")"
+          },
+          {
+            "kind": "const",
+            "name": "WIND_CAP_KMH",
+            "parent": "",
+            "signature": "WIND_CAP_KMH = 20.0"
+          },
+          {
+            "kind": "const",
+            "name": "CLEAR_SKY_PEAK",
+            "parent": "",
+            "signature": "CLEAR_SKY_PEAK = 1050.0"
+          },
+          {
+            "kind": "const",
+            "name": "CLEAR_SKY_FLOOR",
+            "parent": "",
+            "signature": "CLEAR_SKY_FLOOR = 20.0"
+          },
+          {
+            "kind": "const",
+            "name": "RAIN_RATE_THRESHOLD",
+            "parent": "",
+            "signature": "RAIN_RATE_THRESHOLD = 0.2"
+          },
+          {
+            "kind": "const",
+            "name": "FORECAST_WET_PROBABILITY",
+            "parent": "",
+            "signature": "FORECAST_WET_PROBABILITY = 50.0"
+          },
+          {
+            "kind": "const",
+            "name": "FORECAST_WET_PRECIPITATION",
+            "parent": "",
+            "signature": "FORECAST_WET_PRECIPITATION = 0.5"
+          },
+          {
+            "kind": "const",
+            "name": "DEFAULT_HORIZON_HOURS",
+            "parent": "",
+            "signature": "DEFAULT_HORIZON_HOURS = 48"
+          },
+          {
+            "kind": "const",
+            "name": "BEST_WINDOW_FRACTION",
+            "parent": "",
+            "signature": "BEST_WINDOW_FRACTION = 0.6"
+          },
+          {
+            "kind": "const",
+            "name": "OVERNIGHT_HORIZON_HOURS",
+            "parent": "",
+            "signature": "OVERNIGHT_HORIZON_HOURS = 20"
+          },
+          {
+            "kind": "const",
+            "name": "OVERNIGHT_HOURS",
+            "parent": "",
+            "signature": "OVERNIGHT_HOURS = (18, 8)"
+          },
+          {
+            "kind": "const",
+            "name": "OVERNIGHT_DEFAULT_MIN",
+            "parent": "",
+            "signature": "OVERNIGHT_DEFAULT_MIN = 99.0"
+          },
+          {
+            "kind": "const",
+            "name": "ADVICE_LIMIT",
+            "parent": "",
+            "signature": "ADVICE_LIMIT = 255"
+          },
+          {
+            "kind": "const",
+            "name": "COVERED_LINE",
+            "parent": "",
+            "signature": "COVERED_LINE = \"Line under cover\""
+          },
+          {
+            "kind": "const",
+            "name": "OPEN_LINE",
+            "parent": "",
+            "signature": "OPEN_LINE = \"Line in the sun\""
+          },
+          {
+            "kind": "const",
+            "name": "FORECAST_MODEL_UV",
+            "parent": "",
+            "signature": "FORECAST_MODEL_UV = \"uv\""
+          },
+          {
+            "kind": "const",
+            "name": "FORECAST_MODEL_CLOUD",
+            "parent": "",
+            "signature": "FORECAST_MODEL_CLOUD = \"cloud\""
+          },
+          {
+            "kind": "const",
+            "name": "FORECAST_MODEL_ELEVATION",
+            "parent": "",
+            "signature": "FORECAST_MODEL_ELEVATION = \"elevation\""
+          },
+          {
+            "kind": "const",
+            "name": "FORECAST_MODEL_AUTO",
+            "parent": "",
+            "signature": "FORECAST_MODEL_AUTO = \"auto\""
+          },
+          {
+            "kind": "class",
+            "name": "Tuning",
+            "parent": "",
+            "signature": "class Tuning"
+          },
+          {
+            "kind": "function",
+            "name": "clamp",
+            "parent": "",
+            "signature": "clamp(value: float, low: float, high: float) -> float"
+          },
+          {
+            "kind": "function",
+            "name": "vpd_hpa",
+            "parent": "",
+            "signature": "vpd_hpa(temp_c: float, rh_pct: float) -> float"
+          },
+          {
+            "kind": "function",
+            "name": "wind_norm",
+            "parent": "",
+            "signature": "wind_norm(wind_kmh: float | None, cap: float = WIND_CAP_KMH) -> float"
+          },
+          {
+            "kind": "function",
+            "name": "band_index",
+            "parent": "",
+            "signature": "band_index(score: float, bands: Sequence[float] = DEFAULT_BANDS) -> int"
+          },
+          {
+            "kind": "function",
+            "name": "band",
+            "parent": "",
+            "signature": "band(score: float, bands: Sequence[float] = DEFAULT_BANDS) -> str"
+          },
+          {
+            "kind": "function",
+            "name": "band_marks",
+            "parent": "",
+            "signature": "band_marks(score: float, bands: Sequence[float] = DEFAULT_BANDS) -> str"
+          },
+          {
+            "kind": "function",
+            "name": "indoor_score",
+            "parent": "",
+            "signature": "indoor_score(temp_c: float, rh_pct: float) -> float"
+          },
+          {
+            "kind": "function",
+            "name": "covered_score",
+            "parent": "",
+            "signature": "covered_score(vpd_out: float, wn: float) -> float"
+          },
+          {
+            "kind": "function",
+            "name": "sky_fraction",
+            "parent": "",
+            "signature": "sky_fraction(solar_wm2: float | None, elevation_deg: float | None) -> float"
+          },
+          {
+            "kind": "function",
+            "name": "sun_gate",
+            "parent": "",
+            "signature": "sun_gate(elevation_deg: float | None) -> float"
+          },
+          {
+            "kind": "class",
+            "name": "ForecastHour",
+            "parent": "",
+            "signature": "class ForecastHour"
+          },
+          {
+            "kind": "class",
+            "name": "ScoredHour",
+            "parent": "",
+            "signature": "class ScoredHour"
+          },
+          {
+            "kind": "function",
+            "name": "forecast_is_wet",
+            "parent": "",
+            "signature": "forecast_is_wet(hour: ForecastHour) -> bool"
+          },
+          {
+            "kind": "class",
+            "name": "Window",
+            "parent": "",
+            "signature": "class Window"
+          },
+          {
+            "kind": "function",
+            "name": "format_window",
+            "parent": "",
+            "signature": "format_window(window: Window | None) -> str | None"
+          },
+          {
+            "kind": "class",
+            "name": "Spot",
+            "parent": "",
+            "signature": "class Spot"
+          },
+          {
+            "kind": "class",
+            "name": "Assessment",
+            "parent": "",
+            "signature": "class Assessment"
+          }
+        ]
+      },
+      {
+        "path": "custom_components/laundry_weather/config_flow.py",
+        "symbols": [
+          {
+            "kind": "const",
+            "name": "TEMPERATURE_SELECTOR",
+            "parent": "",
+            "signature": "TEMPERATURE_SELECTOR = EntitySelector("
+          },
+          {
+            "kind": "const",
+            "name": "HUMIDITY_SELECTOR",
+            "parent": "",
+            "signature": "HUMIDITY_SELECTOR = EntitySelector("
+          },
+          {
+            "kind": "const",
+            "name": "ANY_SENSOR_SELECTOR",
+            "parent": "",
+            "signature": "ANY_SENSOR_SELECTOR = EntitySelector("
+          },
+          {
+            "kind": "const",
+            "name": "STEP_OUTDOOR_SCHEMA",
+            "parent": "",
+            "signature": "STEP_OUTDOOR_SCHEMA = vol.Schema("
+          },
+          {
+            "kind": "const",
+            "name": "STEP_SUN_SCHEMA",
+            "parent": "",
+            "signature": "STEP_SUN_SCHEMA = vol.Schema("
+          },
+          {
+            "kind": "const",
+            "name": "STEP_RAIN_SCHEMA",
+            "parent": "",
+            "signature": "STEP_RAIN_SCHEMA = vol.Schema("
+          },
+          {
+            "kind": "class",
+            "name": "LaundryWeatherConfigFlow",
+            "parent": "",
+            "signature": "class LaundryWeatherConfigFlow(ConfigFlow, domain=DOMAIN)"
+          },
+          {
+            "kind": "function",
+            "name": "async_get_options_flow",
+            "parent": "LaundryWeatherConfigFlow",
+            "signature": "async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow"
+          },
+          {
+            "kind": "class",
+            "name": "LaundryWeatherOptionsFlow",
+            "parent": "",
+            "signature": "class LaundryWeatherOptionsFlow(OptionsFlow)"
+          }
+        ]
+      },
+      {
+        "path": "custom_components/laundry_weather/const.py",
+        "symbols": [
+          {
+            "kind": "const",
+            "name": "DOMAIN",
+            "parent": "",
+            "signature": "DOMAIN: Final = \"laundry_weather\""
+          },
+          {
+            "kind": "const",
+            "name": "INTEGRATION_VERSION",
+            "parent": "",
+            "signature": "INTEGRATION_VERSION: Final[str] = json.loads("
+          },
+          {
+            "kind": "const",
+            "name": "CONF_NAME",
+            "parent": "",
+            "signature": "CONF_NAME: Final = \"name\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_WEATHER_ENTITY",
+            "parent": "",
+            "signature": "CONF_WEATHER_ENTITY: Final = \"weather_entity\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_OUTDOOR_TEMPERATURE",
+            "parent": "",
+            "signature": "CONF_OUTDOOR_TEMPERATURE: Final = \"outdoor_temperature\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_OUTDOOR_HUMIDITY",
+            "parent": "",
+            "signature": "CONF_OUTDOOR_HUMIDITY: Final = \"outdoor_humidity\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_DEWPOINT",
+            "parent": "",
+            "signature": "CONF_DEWPOINT: Final = \"dewpoint\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_WIND_SPEED",
+            "parent": "",
+            "signature": "CONF_WIND_SPEED: Final = \"wind_speed\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_WIND_GUST",
+            "parent": "",
+            "signature": "CONF_WIND_GUST: Final = \"wind_gust\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_SOLAR_RADIATION",
+            "parent": "",
+            "signature": "CONF_SOLAR_RADIATION: Final = \"solar_radiation\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_SOLAR_PRESMOOTHED",
+            "parent": "",
+            "signature": "CONF_SOLAR_PRESMOOTHED: Final = \"solar_presmoothed\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_SUN_ELEVATION",
+            "parent": "",
+            "signature": "CONF_SUN_ELEVATION: Final = \"sun_elevation\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_SUNSET",
+            "parent": "",
+            "signature": "CONF_SUNSET: Final = \"sunset\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_RAIN_DETECTOR",
+            "parent": "",
+            "signature": "CONF_RAIN_DETECTOR: Final = \"rain_detector\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_RAIN_DRY_STATE",
+            "parent": "",
+            "signature": "CONF_RAIN_DRY_STATE: Final = \"rain_dry_state\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_RAIN_RATE",
+            "parent": "",
+            "signature": "CONF_RAIN_RATE: Final = \"rain_rate\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_ROOMS",
+            "parent": "",
+            "signature": "CONF_ROOMS: Final = \"rooms\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_ROOM_NAME",
+            "parent": "",
+            "signature": "CONF_ROOM_NAME: Final = \"room_name\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_ROOM_TEMPERATURE",
+            "parent": "",
+            "signature": "CONF_ROOM_TEMPERATURE: Final = \"room_temperature\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_ROOM_HUMIDITY",
+            "parent": "",
+            "signature": "CONF_ROOM_HUMIDITY: Final = \"room_humidity\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_ADD_ANOTHER",
+            "parent": "",
+            "signature": "CONF_ADD_ANOTHER: Final = \"add_another\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_REMOVE_ROOMS",
+            "parent": "",
+            "signature": "CONF_REMOVE_ROOMS: Final = \"remove_rooms\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_SUN_COEFF",
+            "parent": "",
+            "signature": "CONF_SUN_COEFF: Final = \"sun_coeff\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_OUTSIDE_MARGIN",
+            "parent": "",
+            "signature": "CONF_OUTSIDE_MARGIN: Final = \"outside_margin\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_BRING_IN_FLOOR",
+            "parent": "",
+            "signature": "CONF_BRING_IN_FLOOR: Final = \"bring_in_floor\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_BAND_FAST",
+            "parent": "",
+            "signature": "CONF_BAND_FAST: Final = \"band_fast\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_BAND_MODERATE",
+            "parent": "",
+            "signature": "CONF_BAND_MODERATE: Final = \"band_moderate\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_BAND_SLOW",
+            "parent": "",
+            "signature": "CONF_BAND_SLOW: Final = \"band_slow\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_FORECAST_SUN_MODEL",
+            "parent": "",
+            "signature": "CONF_FORECAST_SUN_MODEL: Final = \"forecast_sun_model\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_KLINGON",
+            "parent": "",
+            "signature": "CONF_KLINGON: Final = \"klingon\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_FORECAST_HOURS",
+            "parent": "",
+            "signature": "CONF_FORECAST_HOURS: Final = \"forecast_hours\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_SHOW_MASCOT",
+            "parent": "",
+            "signature": "CONF_SHOW_MASCOT: Final = \"show_mascot\""
+          },
+          {
+            "kind": "const",
+            "name": "CONF_EXTERNAL_WASHING_ENTITY",
+            "parent": "",
+            "signature": "CONF_EXTERNAL_WASHING_ENTITY: Final = \"external_washing_entity\""
+          },
+          {
+            "kind": "const",
+            "name": "DEFAULT_NAME",
+            "parent": "",
+            "signature": "DEFAULT_NAME: Final = \"Laundry Weather\""
+          },
+          {
+            "kind": "const",
+            "name": "DEFAULT_RAIN_DRY_STATE",
+            "parent": "",
+            "signature": "DEFAULT_RAIN_DRY_STATE: Final = \"No\""
+          },
+          {
+            "kind": "const",
+            "name": "DEFAULT_FORECAST_HOURS",
+            "parent": "",
+            "signature": "DEFAULT_FORECAST_HOURS: Final = 24"
+          },
+          {
+            "kind": "const",
+            "name": "DEFAULT_SHOW_MASCOT",
+            "parent": "",
+            "signature": "DEFAULT_SHOW_MASCOT: Final = True"
+          },
+          {
+            "kind": "const",
+            "name": "DEFAULT_KLINGON",
+            "parent": "",
+            "signature": "DEFAULT_KLINGON: Final = False"
+          },
+          {
+            "kind": "const",
+            "name": "UPDATE_INTERVAL_SECONDS",
+            "parent": "",
+            "signature": "UPDATE_INTERVAL_SECONDS: Final = 120"
+          },
+          {
+            "kind": "const",
+            "name": "FORECAST_INTERVAL_SECONDS",
+            "parent": "",
+            "signature": "FORECAST_INTERVAL_SECONDS: Final = 900"
+          },
+          {
+            "kind": "const",
+            "name": "FORECAST_RETRY_SECONDS",
+            "parent": "",
+            "signature": "FORECAST_RETRY_SECONDS: Final = 20"
+          },
+          {
+            "kind": "const",
+            "name": "SOLAR_SMOOTHING_TAU_SECONDS",
+            "parent": "",
+            "signature": "SOLAR_SMOOTHING_TAU_SECONDS: Final = 600"
+          },
+          {
+            "kind": "const",
+            "name": "ATTR_SPOTS",
+            "parent": "",
+            "signature": "ATTR_SPOTS: Final = \"spots\""
+          },
+          {
+            "kind": "const",
+            "name": "ATTR_FORECAST",
+            "parent": "",
+            "signature": "ATTR_FORECAST: Final = \"forecast\""
+          },
+          {
+            "kind": "const",
+            "name": "ATTR_FORECAST_META",
+            "parent": "",
+            "signature": "ATTR_FORECAST_META: Final = \"forecast_meta\""
+          },
+          {
+            "kind": "const",
+            "name": "ATTR_TIMINGS",
+            "parent": "",
+            "signature": "ATTR_TIMINGS: Final = \"timings\""
+          },
+          {
+            "kind": "const",
+            "name": "ATTR_OVERNIGHT",
+            "parent": "",
+            "signature": "ATTR_OVERNIGHT: Final = \"overnight\""
+          },
+          {
+            "kind": "const",
+            "name": "ATTR_NOW",
+            "parent": "",
+            "signature": "ATTR_NOW: Final = \"now\""
+          },
+          {
+            "kind": "const",
+            "name": "ATTR_CONFIG",
+            "parent": "",
+            "signature": "ATTR_CONFIG: Final = \"config\""
+          },
+          {
+            "kind": "const",
+            "name": "ATTR_DIAGNOSTICS",
+            "parent": "",
+            "signature": "ATTR_DIAGNOSTICS: Final = \"diagnostics\""
+          },
+          {
+            "kind": "const",
+            "name": "ATTR_ADVICE",
+            "parent": "",
+            "signature": "ATTR_ADVICE: Final = \"advice\""
+          },
+          {
+            "kind": "const",
+            "name": "ATTR_ROOMS",
+            "parent": "",
+            "signature": "ATTR_ROOMS: Final = \"rooms\""
+          },
+          {
+            "kind": "const",
+            "name": "STATIC_URL_BASE",
+            "parent": "",
+            "signature": "STATIC_URL_BASE: Final = \"/laundry_weather_static\""
+          },
+          {
+            "kind": "const",
+            "name": "CARD_FILENAME",
+            "parent": "",
+            "signature": "CARD_FILENAME: Final = \"laundry-weather-card.js\""
+          },
+          {
+            "kind": "const",
+            "name": "MASCOT_GOOD_FILENAME",
+            "parent": "",
+            "signature": "MASCOT_GOOD_FILENAME: Final = \"mascot-good.svg\""
+          },
+          {
+            "kind": "const",
+            "name": "MASCOT_BAD_FILENAME",
+            "parent": "",
+            "signature": "MASCOT_BAD_FILENAME: Final = \"mascot-bad.svg\""
+          },
+          {
+            "kind": "const",
+            "name": "SERVICE_REFRESH",
+            "parent": "",
+            "signature": "SERVICE_REFRESH: Final = \"refresh\""
+          },
+          {
+            "kind": "const",
+            "name": "SERVICE_SET_WASHING_OUT",
+            "parent": "",
+            "signature": "SERVICE_SET_WASHING_OUT: Final = \"set_washing_out\""
+          }
+        ]
+      },
+      {
+        "path": "custom_components/laundry_weather/coordinator.py",
+        "symbols": [
+          {
+            "kind": "const",
+            "name": "INVALID_STATES",
+            "parent": "",
+            "signature": "INVALID_STATES = {STATE_UNAVAILABLE, STATE_UNKNOWN, \"\", \"none\", \"None\"}"
+          },
+          {
+            "kind": "const",
+            "name": "WIND_TO_KMH",
+            "parent": "",
+            "signature": "WIND_TO_KMH: dict[str, float] ="
+          },
+          {
+            "kind": "const",
+            "name": "ELEVATION_RANGE",
+            "parent": "",
+            "signature": "ELEVATION_RANGE = (-90.0, 90.0)"
+          },
+          {
+            "kind": "function",
+            "name": "slugify_room",
+            "parent": "",
+            "signature": "slugify_room(name: str) -> str"
+          },
+          {
+            "kind": "class",
+            "name": "LaundryWeatherCoordinator",
+            "parent": "",
+            "signature": "class LaundryWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]])"
+          },
+          {
+            "kind": "function",
+            "name": "settings",
+            "parent": "LaundryWeatherCoordinator",
+            "signature": "settings(self) -> dict[str, Any]"
+          },
+          {
+            "kind": "function",
+            "name": "tuning",
+            "parent": "LaundryWeatherCoordinator",
+            "signature": "tuning(self) -> calc.Tuning"
+          },
+          {
+            "kind": "function",
+            "name": "rooms",
+            "parent": "LaundryWeatherCoordinator",
+            "signature": "rooms(self) -> list[dict[str, str]]"
+          },
+          {
+            "kind": "function",
+            "name": "washing_out",
+            "parent": "LaundryWeatherCoordinator",
+            "signature": "washing_out(self) -> bool"
+          },
+          {
+            "kind": "function",
+            "name": "async_set_washing_out",
+            "parent": "LaundryWeatherCoordinator",
+            "signature": "async_set_washing_out(self, value: bool) -> None"
+          },
+          {
+            "kind": "function",
+            "name": "pick",
+            "parent": "",
+            "signature": "pick(*keys: str) -> float | None"
+          }
+        ]
+      },
+      {
+        "path": "custom_components/laundry_weather/entity.py",
+        "symbols": [
+          {
+            "kind": "class",
+            "name": "LaundryWeatherEntity",
+            "parent": "",
+            "signature": "class LaundryWeatherEntity(CoordinatorEntity[LaundryWeatherCoordinator])"
+          },
+          {
+            "kind": "function",
+            "name": "data",
+            "parent": "LaundryWeatherEntity",
+            "signature": "data(self) -> dict"
+          }
+        ]
+      },
+      {
+        "path": "custom_components/laundry_weather/sensor.py",
+        "symbols": [
+          {
+            "kind": "const",
+            "name": "UNRECORDED",
+            "parent": "",
+            "signature": "UNRECORDED = frozenset("
+          },
+          {
+            "kind": "class",
+            "name": "RoomScoreSensor",
+            "parent": "",
+            "signature": "class RoomScoreSensor(_ScoreSensor)"
+          },
+          {
+            "kind": "function",
+            "name": "native_value",
+            "parent": "RoomScoreSensor",
+            "signature": "native_value(self) -> float | None"
+          },
+          {
+            "kind": "function",
+            "name": "extra_state_attributes",
+            "parent": "RoomScoreSensor",
+            "signature": "extra_state_attributes(self) -> dict[str, Any]"
+          },
+          {
+            "kind": "class",
+            "name": "CoveredLineScoreSensor",
+            "parent": "",
+            "signature": "class CoveredLineScoreSensor(_ScoreSensor)"
+          },
+          {
+            "kind": "class",
+            "name": "OpenLineScoreSensor",
+            "parent": "",
+            "signature": "class OpenLineScoreSensor(_ScoreSensor)"
+          },
+          {
+            "kind": "class",
+            "name": "RecommendationSensor",
+            "parent": "",
+            "signature": "class RecommendationSensor(LaundryWeatherEntity, SensorEntity)"
+          },
+          {
+            "kind": "function",
+            "name": "native_value",
+            "parent": "RecommendationSensor",
+            "signature": "native_value(self) -> str | None"
+          },
+          {
+            "kind": "class",
+            "name": "AdviceSensor",
+            "parent": "",
+            "signature": "class AdviceSensor(LaundryWeatherEntity, SensorEntity)"
+          },
+          {
+            "kind": "class",
+            "name": "BringInBySensor",
+            "parent": "",
+            "signature": "class BringInBySensor(LaundryWeatherEntity, SensorEntity)"
+          },
+          {
+            "kind": "function",
+            "name": "native_value",
+            "parent": "BringInBySensor",
+            "signature": "native_value(self) -> datetime | None"
+          },
+          {
+            "kind": "class",
+            "name": "MoveOutsideAtSensor",
+            "parent": "",
+            "signature": "class MoveOutsideAtSensor(LaundryWeatherEntity, SensorEntity)"
+          },
+          {
+            "kind": "class",
+            "name": "BestWindowSensor",
+            "parent": "",
+            "signature": "class BestWindowSensor(LaundryWeatherEntity, SensorEntity)"
+          }
+        ]
+      },
+      {
+        "path": "custom_components/laundry_weather/switch.py",
+        "symbols": [
+          {
+            "kind": "class",
+            "name": "WashingOnTheLineSwitch",
+            "parent": "",
+            "signature": "class WashingOnTheLineSwitch(LaundryWeatherEntity, SwitchEntity, RestoreEntity)"
+          },
+          {
+            "kind": "function",
+            "name": "async_added_to_hass",
+            "parent": "WashingOnTheLineSwitch",
+            "signature": "async_added_to_hass(self) -> None"
+          },
+          {
+            "kind": "function",
+            "name": "is_on",
+            "parent": "WashingOnTheLineSwitch",
+            "signature": "is_on(self) -> bool"
+          },
+          {
+            "kind": "function",
+            "name": "async_turn_on",
+            "parent": "WashingOnTheLineSwitch",
+            "signature": "async_turn_on(self, **kwargs: Any) -> None"
+          },
+          {
+            "kind": "function",
+            "name": "async_turn_off",
+            "parent": "WashingOnTheLineSwitch",
+            "signature": "async_turn_off(self, **kwargs: Any) -> None"
+          }
+        ]
+      },
+      {
+        "path": "custom_components/laundry_weather/www/laundry-weather-card.js",
+        "symbols": [
+          {
+            "kind": "function",
+            "name": "_lwEscape",
+            "parent": "",
+            "signature": "function _lwEscape(text)"
+          },
+          {
+            "kind": "function",
+            "name": "_lwFormatters",
+            "parent": "",
+            "signature": "function _lwFormatters(hass, override)"
+          },
+          {
+            "kind": "function",
+            "name": "_lwTime",
+            "parent": "",
+            "signature": "function _lwTime(iso, fmt)"
+          },
+          {
+            "kind": "function",
+            "name": "_lwHour",
+            "parent": "",
+            "signature": "function _lwHour(iso, fmt)"
+          },
+          {
+            "kind": "function",
+            "name": "_lwWindowText",
+            "parent": "",
+            "signature": "function _lwWindowText(window, fmt)"
+          },
+          {
+            "kind": "function",
+            "name": "_lwAdvice",
+            "parent": "",
+            "signature": "function _lwAdvice(attrs, fmt)"
+          },
+          {
+            "kind": "function",
+            "name": "_lwCountdown",
+            "parent": "",
+            "signature": "function _lwCountdown(iso, fmt)"
+          },
+          {
+            "kind": "class",
+            "name": "LaundryWeatherCard",
+            "parent": "",
+            "signature": "class LaundryWeatherCard extends HTMLElement"
+          },
+          {
+            "kind": "function",
+            "name": "_lwKlingonToMode",
+            "parent": "",
+            "signature": "function _lwKlingonToMode(value)"
+          },
+          {
+            "kind": "function",
+            "name": "_lwModeToKlingon",
+            "parent": "",
+            "signature": "function _lwModeToKlingon(mode)"
+          },
+          {
+            "kind": "function",
+            "name": "_lwEditorSchema",
+            "parent": "",
+            "signature": "function _lwEditorSchema(candidates)"
+          },
+          {
+            "kind": "function",
+            "name": "_lwLoadHaComponents",
+            "parent": "",
+            "signature": "function _lwLoadHaComponents()"
+          },
+          {
+            "kind": "class",
+            "name": "LaundryWeatherCardEditor",
+            "parent": "",
+            "signature": "class LaundryWeatherCardEditor extends HTMLElement"
+          }
+        ]
+      },
+      {
+        "path": "scripts/make_brand_icons.py",
+        "symbols": [
+          {
+            "kind": "function",
+            "name": "has_branding",
+            "parent": "",
+            "signature": "has_branding(self) -> bool"
+          },
+          {
+            "kind": "const",
+            "name": "BRAND",
+            "parent": "",
+            "signature": "BRAND = ("
+          },
+          {
+            "kind": "const",
+            "name": "SOURCE",
+            "parent": "",
+            "signature": "SOURCE = BRAND / \"logo-source.png\""
+          },
+          {
+            "kind": "const",
+            "name": "SIZES",
+            "parent": "",
+            "signature": "SIZES = {\"icon.png\": 256, \"icon@2x.png\": 512}"
+          },
+          {
+            "kind": "function",
+            "name": "is_tile",
+            "parent": "",
+            "signature": "is_tile(pixel) -> bool"
+          },
+          {
+            "kind": "function",
+            "name": "cut_out_tile",
+            "parent": "",
+            "signature": "cut_out_tile(art: Image.Image) -> Image.Image"
+          },
+          {
+            "kind": "function",
+            "name": "main",
+            "parent": "",
+            "signature": "main() -> int"
+          }
+        ]
+      },
+      {
+        "path": "scripts/make_stickers.py",
+        "symbols": [
+          {
+            "kind": "const",
+            "name": "REPO",
+            "parent": "",
+            "signature": "REPO = Path(__file__).resolve().parent.parent"
+          },
+          {
+            "kind": "const",
+            "name": "WWW",
+            "parent": "",
+            "signature": "WWW = REPO / \"custom_components\" / \"laundry_weather\" / \"www\""
+          },
+          {
+            "kind": "const",
+            "name": "TARGET_WIDTH",
+            "parent": "",
+            "signature": "TARGET_WIDTH = 600"
+          },
+          {
+            "kind": "const",
+            "name": "PALETTE_COLOURS",
+            "parent": "",
+            "signature": "PALETTE_COLOURS = 128"
+          },
+          {
+            "kind": "class",
+            "name": "Sticker",
+            "parent": "",
+            "signature": "class Sticker"
+          },
+          {
+            "kind": "function",
+            "name": "yellow",
+            "parent": "",
+            "signature": "yellow(r: int, g: int, b: int) -> bool"
+          },
+          {
+            "kind": "function",
+            "name": "red",
+            "parent": "",
+            "signature": "red(r: int, g: int, b: int) -> bool"
+          },
+          {
+            "kind": "function",
+            "name": "load_trimmed",
+            "parent": "",
+            "signature": "load_trimmed(path: Path) -> Image.Image"
+          },
+          {
+            "kind": "function",
+            "name": "bubble_box",
+            "parent": "",
+            "signature": "bubble_box(image: Image.Image, sticker: Sticker) -> tuple[int, int, int, int]"
+          },
+          {
+            "kind": "function",
+            "name": "pick_font",
+            "parent": "",
+            "signature": "pick_font(size: int, piqad: bool = False) -> ImageFont.FreeTypeFont"
+          },
+          {
+            "kind": "function",
+            "name": "save",
+            "parent": "",
+            "signature": "save(image: Image.Image, path: Path) -> int"
+          },
+          {
+            "kind": "function",
+            "name": "main",
+            "parent": "",
+            "signature": "main() -> int"
+          }
+        ]
+      }
+    ]
+  },
+  "tests": [
+    "tests/__init__.py",
+    "tests/conftest.py",
+    "tests/test_calc_advice.py",
+    "tests/test_calc_forecast.py",
+    "tests/test_calc_live_scores.py",
+    "tests/test_calc_parity.py",
+    "tests/test_calc_recommendation.py",
+    "tests/test_calc_timings.py",
+    "tests/test_calc_vpd.py",
+    "tests/test_calc_window.py",
+    "tests/test_config_flow.py",
+    "tests/test_integration.py",
+    "tests/test_packaging.py"
+  ],
+  "operations": [
+    ".github/workflows/release.yaml",
+    ".github/workflows/validate.yaml"
+  ],
+  "limitations": {
+    "unparsed_languages": [],
+    "excluded_dirs": [],
+    "code_map_truncated": false,
+    "code_map_symbols_capped": true,
+    "tracked_files_only": true
+  },
+  "generated": {
+    "source_commit": "3a7bf4ab3951208cfe33c46b03f62656037a2a73",
+    "content_hash": "e691749b0c7643ae",
+    "generator": "navgen"
+  }
+}
