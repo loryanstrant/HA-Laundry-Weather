@@ -13,14 +13,27 @@ import pytest
 # the card's hour ticks are local. A UTC-only test run would pass while the
 # feature was wrong for anyone east of Greenwich, so the zone is pinned rather
 # than inherited from the runner.
+#
+# ⚠ This pins the zone the *fixtures* construct datetimes in. It does not
+# change the Home Assistant test instance, which stays on its own `US/Pacific`
+# default — see the note on `TEST_NOW`.
 TEST_TZ_NAME = "Australia/Melbourne"
 TEST_TZ = ZoneInfo(TEST_TZ_NAME)
 
 os.environ["TZ"] = TEST_TZ_NAME
 
 
-# The moment every test runs at. Mid-morning on a late-winter Saturday, so a
-# whole drying day lies ahead of "now" — which is the shape the production
+# The moment every test runs at.
+#
+# ⚠ Read this in two timezones, because the suite runs in two. `TEST_TZ` below
+# is what the *fixtures* build their datetimes in, but it is NOT the zone the
+# Home Assistant test instance uses: `hass.config.time_zone` is
+# `pytest-homeassistant-custom-component`'s own default, `US/Pacific`, with
+# San Diego coordinates (32.87336, -117.22743). So `dt_util.now()` inside a
+# test is Pacific, and every sunset the integration computes is San Diego's.
+#
+# In those terms this instant is 2026-08-21 16:00 PT, with sunset at 19:26 PT —
+# about 3.5 hours of drying day still ahead, which is the shape the production
 # snapshot these tests are built from was captured in.
 TEST_NOW = datetime(2026, 8, 22, 9, 0, tzinfo=TEST_TZ)
 
@@ -29,15 +42,24 @@ TEST_NOW = datetime(2026, 8, 22, 9, 0, tzinfo=TEST_TZ)
 def frozen_clock(freezer):
     """Pin the wall clock, for every test, before Home Assistant starts.
 
+    Without this the suite's result depends on what time of day it runs.
     Several tests build their forecast relative to `dt_util.now()` and then
     assert on a judgement the integration makes about *the rest of today* —
-    whether the day is worth drying on, whether a best window is still ahead.
-    Run at 09:00 those hold; run at 21:00 the good hours are tomorrow's and the
-    same assertions fail. That is exactly what happened: two tests passed all
-    morning and turned the CI run red in the evening, with nothing changed.
+    and `good_drying_day` is deliberately bounded at tonight's sunset
+    (`calc.rest_of_today_peak`), so once "now" is near or past sunset in the
+    instance's own Pacific zone there is correctly no drying day left and the
+    sensor turns off. The assertions were written for a morning; from roughly
+    half an hour before sunset onwards they fail, and the integration is right.
+
+    This was not theoretical. The nightly cron landed around 17:30 PT, some
+    37-40 minutes before a San Diego sunset, and passed 30 nights out of 31 on
+    that margin alone; the one nightly that drifted to 18:12 PT (18 minutes of
+    margin, 2026-10-04) failed, and so did every push made during an Australian
+    afternoon. The margin was shrinking with the season, so it was going to
+    stop passing outright.
 
     Freezing here rather than in each test means a test added later cannot
-    quietly reintroduce the dependency on what time the run happens to start.
+    quietly reintroduce the dependency on when the run happens to start.
     """
     freezer.move_to(TEST_NOW)
     return freezer
@@ -74,10 +96,12 @@ def local_tz() -> ZoneInfo:
 
 @pytest.fixture
 def now() -> datetime:
-    """A fixed local 'now' — mid-morning, so a full drying day lies ahead.
+    """A fixed 'now' with a full drying day still ahead of it.
 
     The same moment the clock is frozen to, so a model test and an integration
-    test are talking about the same instant.
+    test are talking about the same instant. Model tests read it as 09:00
+    Melbourne and pair it with the `sunset` fixture below; the integration
+    sees the same instant as 16:00 PT. See `TEST_NOW`.
     """
     return TEST_NOW
 

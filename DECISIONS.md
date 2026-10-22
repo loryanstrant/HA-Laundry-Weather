@@ -364,28 +364,75 @@ the other tool actually writes before building a comparison on top of it.
 ## 2026-10-22 — The test suite runs at a fixed moment
 
 Two integration tests — `test_the_headline_is_about_the_day_not_the_minute`
-and `test_the_card_gets_an_advice_template_it_can_reformat` — had been failing
-in CI for weeks with nothing committed to explain it. Nothing had changed; the
-date had.
+and `test_the_card_gets_an_advice_template_it_can_reformat` — fail or pass
+depending on **what time of day the suite is run**, and nothing else. Pinned
+with an autouse `freezer` fixture in `tests/conftest.py`.
 
-The `loaded_entry` fixture builds its hourly forecast relative to
-`dt_util.now()`, so the *forecast* moves with the clock. The integration's
-sunset does not come from the fixture at all: `_sunset` calls
-`get_astral_event_date(hass, "sunset", now)`, a real astral calculation against
-the real current date. So the number of useful hours between "now" and sunset
-is a function of what day the suite happens to run on, while every assertion in
-those tests was written against a late-winter morning. In August it held. In
-late October it did not, and the whole `Validate` workflow went red — including
-for the HACS submission, whose checklist requires a green run.
+The mechanism is not a bug in the integration; the integration is right.
+`good_drying_day` is deliberately bounded at tonight's sunset, via
+`calc.rest_of_today_peak`, precisely so that a glorious tomorrow is not
+reported as a good drying day tonight. The `loaded_entry` fixture builds its
+forecast relative to `dt_util.now()`, so as "now" approaches sunset there is
+genuinely no drying day left and the sensor correctly turns off — while the
+test's own guard assertion reads `best_window.peak`, which searches the whole
+48-hour horizon and by then is describing *tomorrow*. So the guard still says
+"the fixture has a good day in it" while the sensor says "not today", and both
+are telling the truth. The assertions were written for a morning and only hold
+in one.
 
-Pinned with an autouse `freezer` fixture in `tests/conftest.py`, moved to
-`2026-08-22 09:00 Australia/Melbourne` — the same instant the existing `now`
-fixture already used, which now reads from the same constant so a model test
-and an integration test are talking about one moment. Freezing in conftest
+The sunset in question is **San Diego's, in US/Pacific** — not Melbourne's.
+`conftest.py` pins `TEST_TZ` and `os.environ["TZ"]` to Australia/Melbourne, but
+that only governs the datetimes the fixtures construct;
+`pytest-homeassistant-custom-component` leaves `hass.config.time_zone` at its
+own `US/Pacific` default with coordinates 32.87336, -117.22743, so every sunset
+the integration computes is San Diego's and `dt_util.now()` is Pacific. Worth
+knowing before reading any hour-of-day assertion in this suite.
+
+**It had not "been failing for weeks" — that was the first wrong diagnosis,
+and the run history disproves it.** Every nightly between 2026-09-22 and
+2026-10-22 was green except one. Correlating each run against sunset in the
+instance's own zone explains all of them exactly:
+
+| Run (AEDT) | Instance local | To sunset | CI |
+|---|---|---|---|
+| 2026-09-22 10:33 | 17:33 PT | +73 min | pass |
+| 2026-10-21 11:30 | 17:30 PT | +40 min | pass |
+| 2026-10-22 11:31 | 17:31 PT | +37 min | pass |
+| 2026-10-04 12:12 | 18:12 PT | +18 min | **fail** |
+| 2026-10-22 13:07 | 19:07 PT | −59 min | **fail** |
+
+The cron fires at midnight UTC, which lands mid-to-late afternoon Pacific, so
+the suite was passing on a margin of about 37 minutes before sunset — and that
+margin shrinks as the season moves. The 4 October nightly drifted 42 minutes
+later than usual and failed; every push made during an Australian afternoon
+failed. It was weeks from failing outright no matter what anyone committed.
+
+Frozen to `2026-08-22 09:00 Australia/Melbourne`, which the instance reads as
+`2026-08-21 16:00 PT` against a 19:26 PT sunset — about 3.5 hours of margin
+instead of 37 minutes. That is the same instant the existing `now` fixture
+already used, so both now read one `TEST_NOW` constant. Freezing in conftest
 rather than per test is deliberate: a test added later cannot quietly
 reintroduce a dependency on when the run starts.
+
+Two things deliberately **not** changed. The timezone mismatch between the
+fixtures and the instance is left as it is and merely documented — setting
+`hass.config.time_zone` to Melbourne would move every hour-of-day assertion in
+the suite at once, which is a bigger change than a red build justifies. And
+the guard assertion in `test_the_headline_is_about_the_day_not_the_minute`
+still reads the 48-hour `best_window.peak` rather than today's peak, so it
+describes the fixture less precisely than it looks; with the clock frozen it
+can no longer drift, so it was left alone rather than rewritten under a CI fix.
 
 **Lesson:** a fixture that pins *some* of the inputs is worse than one that
 pins none, because the suite passes until the unpinned input drifts — and then
 it fails on a day nobody touched the code, which is the hardest kind of red to
-read.
+read. The near miss here is the more useful half: it was not failing *yet*, it
+was passing on 37 minutes of margin that nobody had measured.
+
+**Second lesson, about the diagnosis rather than the bug:** the first two
+explanations written for this — "the date moved" and "it had been red for
+weeks" — were both wrong, and both were arrived at from a single observation
+each. Sweeping the actual variable (freeze at many hours and dates, then
+correlate against the real run history) took about three minutes and gave an
+answer that predicted every run. Guessing from one data point cost two
+rewrites of this entry.
