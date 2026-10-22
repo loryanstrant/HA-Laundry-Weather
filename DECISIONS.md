@@ -360,3 +360,32 @@ different tests, and only the second one was ever the requirement.
 **Second lesson:** "the bytes we ship" and "the bytes that land" are different
 quantities the moment anything else parses and rewrites the file. Check what
 the other tool actually writes before building a comparison on top of it.
+
+## 2026-10-22 — The test suite runs at a fixed moment
+
+Two integration tests — `test_the_headline_is_about_the_day_not_the_minute`
+and `test_the_card_gets_an_advice_template_it_can_reformat` — had been failing
+in CI for weeks with nothing committed to explain it. Nothing had changed; the
+date had.
+
+The `loaded_entry` fixture builds its hourly forecast relative to
+`dt_util.now()`, so the *forecast* moves with the clock. The integration's
+sunset does not come from the fixture at all: `_sunset` calls
+`get_astral_event_date(hass, "sunset", now)`, a real astral calculation against
+the real current date. So the number of useful hours between "now" and sunset
+is a function of what day the suite happens to run on, while every assertion in
+those tests was written against a late-winter morning. In August it held. In
+late October it did not, and the whole `Validate` workflow went red — including
+for the HACS submission, whose checklist requires a green run.
+
+Pinned with an autouse `freezer` fixture in `tests/conftest.py`, moved to
+`2026-08-22 09:00 Australia/Melbourne` — the same instant the existing `now`
+fixture already used, which now reads from the same constant so a model test
+and an integration test are talking about one moment. Freezing in conftest
+rather than per test is deliberate: a test added later cannot quietly
+reintroduce a dependency on when the run starts.
+
+**Lesson:** a fixture that pins *some* of the inputs is worse than one that
+pins none, because the suite passes until the unpinned input drifts — and then
+it fails on a day nobody touched the code, which is the hardest kind of red to
+read.
