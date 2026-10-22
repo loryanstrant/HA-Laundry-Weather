@@ -8,8 +8,11 @@ the card's attribute payload is actually there.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import re
+import time
 from datetime import timedelta
 from pathlib import Path
 
@@ -597,6 +600,13 @@ async def test_an_edited_copy_is_not_clobbered(
 
     Copying unconditionally would silently throw away edits every time Home
     Assistant restarted, which is the kind of loss nobody thinks to look for.
+
+    ⚠ This test was never sufficient on its own, and said so nowhere. It edits
+    the destination *after* the install, which leaves the destination newer
+    than the bundled file — so the old mtime guard passed it while still
+    overwriting edits on a real upgrade, where the unzipped file is always the
+    newer one. `test_an_upgrade_does_not_clobber_an_edited_copy` below is the
+    one that actually covers that, and it is the case HACS review caught.
     """
     from custom_components.laundry_weather.blueprints_install import (
         _DATA_INSTALLED,
@@ -611,6 +621,233 @@ async def test_an_edited_copy_is_not_clobbered(
     await async_install_blueprints(hass)
 
     assert mine.read_text(encoding="utf-8") == "# my own version\n"
+
+
+def _bundle(tmp_path: Path, body: str) -> tuple[Path, Path, Path]:
+    """A one-file bundled blueprint folder and the config folder it installs to."""
+    source_dir = tmp_path / "bundled"
+    source_dir.mkdir(exist_ok=True)
+    source = source_dir / "bring_it_in.yaml"
+    source.write_text(body, encoding="utf-8")
+    return source_dir, source, tmp_path / "config_blueprints"
+
+
+def _age_backwards(path: Path) -> None:
+    """Make a file look old, the way an upgrade makes the shipped one look new.
+
+    HACS unzips the component on every upgrade, so the bundled blueprint
+    always carries a fresh mtime and the destination always looks older. That
+    is precisely the ordering the old guard got wrong.
+    """
+    stamp = time.time() - 86400
+    os.utime(path, (stamp, stamp))
+
+
+def test_an_upgrade_does_not_clobber_an_edited_copy(tmp_path: Path) -> None:
+    """The failure HACS review caught — an upgrade eating the user's edits.
+
+    hacs/default#10258: the installer compared mtimes, and on upgrade the
+    freshly unzipped file is always newer, so an edited copy was replaced
+    without warning. Reproduced here by editing the destination and *then*
+    shipping a newer bundled version, which is the real-world order.
+    """
+    from custom_components.laundry_weather.blueprints_install import _install
+
+    source_dir, source, dest_dir = _bundle(tmp_path, "shipped v1\n")
+    copied, kept, recorded = _install(source_dir, dest_dir, {})
+    assert copied == ["bring_it_in.yaml"]
+
+    # The user tailors their copy, then time passes.
+    destination = dest_dir / "bring_it_in.yaml"
+    destination.write_text("my own version\n", encoding="utf-8")
+    _age_backwards(destination)
+
+    # v0.4.2 ships an improved blueprint and HACS unzips it: newer mtime,
+    # different bytes. Under the old guard this overwrote the edit.
+    source.write_text("shipped v2\n", encoding="utf-8")
+
+    copied, kept, recorded = _install(source_dir, dest_dir, recorded)
+
+    assert copied == []
+    assert kept == ["bring_it_in.yaml"]
+    assert destination.read_text(encoding="utf-8") == "my own version\n"
+
+
+def test_an_untouched_copy_is_upgraded(tmp_path: Path) -> None:
+    """Not overwriting edits must not mean never improving anything.
+
+    If the installed file is byte-for-byte what we put there, nobody has
+    anything to lose by replacing it.
+    """
+    from custom_components.laundry_weather.blueprints_install import _install
+
+    source_dir, source, dest_dir = _bundle(tmp_path, "shipped v1\n")
+    _, _, recorded = _install(source_dir, dest_dir, {})
+
+    destination = dest_dir / "bring_it_in.yaml"
+    _age_backwards(destination)
+    source.write_text("shipped v2\n", encoding="utf-8")
+
+    copied, kept, recorded = _install(source_dir, dest_dir, recorded)
+
+    assert copied == ["bring_it_in.yaml"]
+    assert kept == []
+    assert destination.read_text(encoding="utf-8") == "shipped v2\n"
+    assert recorded["bring_it_in.yaml"] == hashlib.sha256(b"shipped v2\n").hexdigest()
+
+
+def test_a_copy_we_have_no_record_of_is_left_alone(tmp_path: Path) -> None:
+    """Anyone who installed before v0.4.1 keeps what they have.
+
+    Without a recorded hash, an old shipped version and an edited one are the
+    same bytes-differ case, so the only safe answer is to touch neither.
+    """
+    from custom_components.laundry_weather.blueprints_install import _install
+
+    source_dir, _, dest_dir = _bundle(tmp_path, "shipped v2\n")
+    dest_dir.mkdir(parents=True)
+    destination = dest_dir / "bring_it_in.yaml"
+    destination.write_text("whatever they already had\n", encoding="utf-8")
+    _age_backwards(destination)
+
+    copied, kept, recorded = _install(source_dir, dest_dir, {})
+
+    assert copied == []
+    assert kept == ["bring_it_in.yaml"]
+    assert "bring_it_in.yaml" not in recorded
+    assert destination.read_text(encoding="utf-8") == "whatever they already had\n"
+
+
+def test_an_identical_copy_is_adopted_into_the_record(tmp_path: Path) -> None:
+    """A file that already matches what we ship becomes trackable.
+
+    Someone who imported by URL, or who installed before v0.4.1 and never
+    edited, ends up with the shipped bytes on disk. Recording them means the
+    upgrade *after* this one can recognise the file as untouched.
+    """
+    from custom_components.laundry_weather.blueprints_install import _install
+
+    source_dir, _, dest_dir = _bundle(tmp_path, "shipped v1\n")
+    dest_dir.mkdir(parents=True)
+    (dest_dir / "bring_it_in.yaml").write_text("shipped v1\n", encoding="utf-8")
+
+    copied, kept, recorded = _install(source_dir, dest_dir, {})
+
+    assert copied == []
+    assert kept == []
+    assert recorded["bring_it_in.yaml"] == hashlib.sha256(b"shipped v1\n").hexdigest()
+
+
+async def test_what_we_installed_is_recorded_where_it_survives_a_restart(
+    hass: HomeAssistant, blueprint_config_dir, loaded_entry: MockConfigEntry
+) -> None:
+    """The record lives in Home Assistant's store, not in memory.
+
+    An in-memory record would be empty on every start, which turns every
+    upgrade back into the unrecorded case and quietly strands everybody on
+    their current blueprint.
+    """
+    from homeassistant.helpers.storage import Store
+
+    from custom_components.laundry_weather.blueprints_install import (
+        _STORE_KEY,
+        _STORE_VERSION,
+    )
+
+    stored = await Store(hass, _STORE_VERSION, _STORE_KEY).async_load()
+    assert stored and stored["installed"], "nothing was recorded"
+
+    for name, digest in stored["installed"].items():
+        landed = blueprint_config_dir / name
+        assert landed.exists(), f"{name} is recorded but not installed"
+        assert hashlib.sha256(landed.read_bytes()).hexdigest() == digest
+
+
+def test_a_failed_copy_leaves_no_half_written_blueprint(tmp_path: Path) -> None:
+    """A disk that fills mid-copy must not strand a corrupt file.
+
+    `copy2` truncates and then writes, so a failure part-way leaves a
+    destination matching neither the shipped file nor any record — which this
+    module would read as a user edit forever and never repair. The write goes
+    via a temporary name and a rename instead.
+    """
+    from custom_components.laundry_weather.blueprints_install import _install
+
+    source_dir, _, dest_dir = _bundle(tmp_path, "shipped v1\n")
+    dest_dir.mkdir(parents=True)
+    destination = dest_dir / "bring_it_in.yaml"
+    destination.write_text("the version already installed\n", encoding="utf-8")
+
+    def _die_mid_write(src, dst, **kwargs):
+        Path(dst).write_text("half a f", encoding="utf-8")
+        raise OSError("no space left on device")
+
+    already = hashlib.sha256(b"the version already installed\n").hexdigest()
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr("shutil.copy2", _die_mid_write)
+        copied, kept, recorded = _install(
+            source_dir, dest_dir, {"bring_it_in.yaml": already}
+        )
+
+    assert copied == []
+    assert destination.read_text(encoding="utf-8") == "the version already installed\n"
+    assert not list(dest_dir.glob(".*tmp")), "a temporary file was left behind"
+
+
+async def test_a_broken_record_does_not_break_the_integration(
+    hass: HomeAssistant, blueprint_config_dir, caplog
+) -> None:
+    """Blueprints are a side feature; the drying model is not.
+
+    An unreadable `.storage` file must cost the blueprint update, not every
+    sensor in the integration.
+    """
+    from homeassistant.helpers.storage import Store
+
+    from custom_components.laundry_weather.blueprints_install import (
+        async_install_blueprints,
+    )
+
+    async def _corrupt(self):
+        raise ValueError("not valid JSON")
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(Store, "async_load", _corrupt)
+        await async_install_blueprints(hass)
+
+    assert "could not read the blueprint record" in caplog.text
+    # And with no record it takes the conservative branch: still installs what
+    # is missing, because there is nothing there to lose.
+    assert list(blueprint_config_dir.glob("*.yaml"))
+
+
+async def test_two_config_entries_cannot_race_each_other(hass: HomeAssistant) -> None:
+    """Nothing makes this integration single-instance.
+
+    Home Assistant sets config entries of the same domain up concurrently. A
+    once-per-run flag set *after* an await leaves a window where both entries
+    run the install in separate executor threads over the same files, each
+    able to hash a file the other is half-way through writing.
+    """
+    import asyncio
+
+    from custom_components.laundry_weather import blueprints_install
+
+    calls: list[int] = []
+
+    def _record(source_dir, dest_dir, recorded):
+        calls.append(1)
+        return [], [], dict(recorded)
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(blueprints_install, "_install", _record)
+        await asyncio.gather(
+            blueprints_install.async_install_blueprints(hass),
+            blueprints_install.async_install_blueprints(hass),
+        )
+
+    assert len(calls) == 1, "both entries installed at once"
 
 
 async def test_an_unwritable_blueprint_folder_does_not_break_setup(

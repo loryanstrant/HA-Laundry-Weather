@@ -20,6 +20,10 @@ card on a wall.
 > blueprint repositories, and what `blueprints_install.py` now does here. The blueprints ship
 > inside the component and install themselves; the URL import is the fallback for people who
 > have not installed the integration. See `DECISIONS.md`, 2026-08-22.
+>
+> **Refined in v0.4.1.** The install records a hash of every file it writes and never
+> overwrites a copy that differs from what it put there, so an upgrade cannot take someone's
+> edits — the fix HACS review required. See `DECISIONS.md`, 2026-10-22.
 
 **Home Assistant will not load a blueprint from a custom integration.**
 `blueprint/models.py` resolves the folder as `hass.config.path("blueprints", domain)` — only
