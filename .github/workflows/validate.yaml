@@ -1,11 +1,22 @@
 name: Validate
 
 on:
+  # main only. A push to a PR branch would otherwise start this workflow
+  # twice over for the same commit - once here and once via pull_request.
   push:
+    branches:
+      - main
   pull_request:
   schedule:
     - cron: "0 0 * * *"
   workflow_dispatch:
+
+# Supersede rather than queue: when a branch gets a newer commit, the older
+# run for that branch is cancelled instead of waiting its turn on the single
+# shared Actions runner.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
