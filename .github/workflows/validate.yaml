@@ -25,6 +25,21 @@ jobs:
   validate-hacs:
     runs-on: ubuntu-latest
     name: HACS Validation
+    # GitHub only. hacs/action talks to api.github.com unconditionally: its entire input set is
+    # ignore/category/repository/comment/github_token, and action.py constructs its API clients
+    # with no endpoint argument, so there is no way to aim it at Gitea. The Gitea token it is
+    # handed here can therefore only ever read back "Bad credentials". Upstream will not support
+    # another forge: hacs/integration#3246, closed not_planned — "only the public facing GitHub
+    # will be supported".
+    # A real GitHub PAT WOULD make this pass here; that is the usual workaround and we reject it
+    # deliberately. It would check the mirror's state while appearing to vouch for this branch,
+    # and it would park a long-lived credential in CI for a check that belongs on the mirror.
+    # The mirror runs this same workflow and validates for real — verified: its Validate run
+    # 42317488734 succeeded on 2026-11-07. Of the HA repos, this is the one whose mirror is
+    # confirmed still enabled, so it is the best place to check the gate behaves upstream.
+    # NB: test for github.com positively — our Gitea's server_url is
+    # http://soundwave.strant.casa:3222, which contains no "gitea" to match on.
+    if: ${{ github.server_url == 'https://github.com' }}
     steps:
       - uses: actions/checkout@v4
       - uses: hacs/action@main
