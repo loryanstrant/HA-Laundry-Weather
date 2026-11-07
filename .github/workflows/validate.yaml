@@ -25,6 +25,14 @@ jobs:
   validate-hacs:
     runs-on: ubuntu-latest
     name: HACS Validation
+    # GitHub only. hacs/action talks to api.github.com unconditionally and takes no base-URL
+    # input, so on Gitea it fails "Bad credentials" with the Gitea token it is handed and can
+    # never pass. Upstream will not support another forge: hacs/integration#3246 was closed
+    # not_planned with "only the public facing GitHub will be supported". The GitHub mirror
+    # runs this same workflow and validates for real.
+    # NB: test for github.com positively — our Gitea's server_url is
+    # http://soundwave.strant.casa:3222, which contains no "gitea" to match on.
+    if: ${{ github.server_url == 'https://github.com' }}
     steps:
       - uses: actions/checkout@v4
       - uses: hacs/action@main
